@@ -1,0 +1,81 @@
+Script started on Fri 02 Jun 2017 09:00:53 AM PDT
+tanism3@cf405-12:~/NEW WWU/cs352/work352/msh$ make
+gcc -g -Wall   -c -o msh.o msh.c
+gcc -g -Wall   -c -o arg_parse.o arg_parse.c
+gcc -g -Wall   -c -o builtin.o builtin.c
+gcc -g -Wall   -c -o expand.o expand.c
+gcc -g -Wall   -c -o strmode.o strmode.c
+gcc -g -Wall   -c -o findComment.o findComment.c
+gcc -g -Wall   -c -o findChar.o findChar.c
+gcc -g -Wall   -c -o sigHandler.o sigHandler.c
+gcc -g -Wall   -c -o findRedir.o findRedir.c
+gcc -g -Wall   -c -o handlePipes.o handlePipes.c
+gcc -g -Wall   -c -o stmts.o stmts.c
+[01m[Kstmts.c:[m[K In function ‘[01m[KrunStmt[m[K’:
+[01m[Kstmts.c:29:1:[m[K [01;35m[Kwarning: [m[Kcontrol reaches end of non-void function [-Wreturn-type]
+ }
+[01;32m[K ^[m[K
+gcc   msh.o arg_parse.o builtin.o expand.o strmode.o findComment.o findChar.o sigHandler.o findRedir.o handlePipes.o stmts.o   -o msh
+tanism3@cf405-12:~/NEW WWU/cs352/work352/msh$ ./msh
+% echo Hello > out
+% cat out | g cv ut -c0-4
+cut: byte/character positions are numbered from 1
+Try 'cut --help' for more information.
+% cat out | cut -c1-4
+Hell
+% caut  t out | cut -c1-4 |c  cut -c3-4
+ll
+% echo $(pwd | cut -c1-5)
+/home
+% < out cut -c3 3-4
+ll
+% <out cut -c3-4 >test
+% cat test | e grep l | tee test2
+ll
+% cat test  2
+ll
+% <out cat >test2 >test3 >test4 @ 2>err
+% cat test2
+% cat test3
+% cat test4
+Hello
+% cat err
+% cd notdir > @ 2>err
+% e cat 2err
+cat: 2err: No such file or directory
+% cat err
+chdir
+% echo hello > "spaces in the file name"
+% cat space     "spaces in the file name"
+hello
+% if [ -d /home/marsh ] 
+echo Hello
+else   nd
+% if ] [ -d/  /home/tanism3 ]
+echo Hello
+else
+echo not
+end
+% while [ -d /home/tanism3 ]
+end
+end
+% exit
+tanism3@cf405-12:~/NEW WWU/cs352/work352/msh$ ls
+arg_parse.c  builtin.c	err	  findChar.c	 findComment.o	handlePipes.c  Makefile  msh.c	proto.h       spaces in the file name  strmode.c  test2
+arg_parse.o  builtin.o	expand.c  findChar.o	 findRedir.c	handlePipes.o  mine	 msh.o	sigHandler.c  stmts.c		       strmode.o  test3
+ASSIGN6      CVS	expand.o  findComment.c  findRedir.o	his	       msh	 out	sigHandler.o  stmts.o		       test	  test4
+tanism3@cf405-12:~/NEW WWU/cs352/work352/msh$ make clean
+rm -f arg_parse.o builtin.o msh.o expand.o strmode.o findComment.o findChar.o sigHandler.o findRedir.o handlePipes.o stmts.o msh
+tanism3@cf405-12:~/NEW WWU/cs352/work352/msh$ ls
+arg_parse.c  builtin.c	err	  findChar.c	 findRedir.c	his	  mine	 out	  sigHandler.c		   stmts.c    test   test3
+ASSIGN6      CVS	expand.c  findComment.c  handlePipes.c	Makefile  msh.c  proto.h  spaces in the file name  strmode.c  test2  test4
+tanism3@cf405-12:~/NEW WWU/cs352/work352/msh$ rm err out test test3 spaces\ in\ the\ file\ name test2 test4
+tanism3@cf405-12:~/NEW WWU/cs352/work352/msh$ ls
+arg_parse.c  ASSIGN6  builtin.c  CVS  expand.c	findChar.c  findComment.c  findRedir.c	handlePipes.c  his  Makefile  mine  msh.c  proto.h  sigHandler.c  stmts.c  strmode.c
+tanism3@cf405-12:~/NEW WWU/cs352/work352/msh$ cp his ../te[Kurnin6
+tanism3@cf405-12:~/NEW WWU/cs352/work352/msh$ cp his ../turnin6[C[1P ../turnin6[1P ../turnin6[1P ../turnin6m ../turnin6i ../turnin6n ../turnin6e ../turnin6
+tanism3@cf405-12:~/NEW WWU/cs352/work352/msh$ cd
+tanism3@cf405-12:~$ exit
+exit
+
+Script done on Fri 02 Jun 2017 09:08:29 AM PDT

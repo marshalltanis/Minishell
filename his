@@ -1,0 +1,310 @@
+Script started on Fri 02 Jun 2017 08:59:21 AM PDT
+tanism3@cf405-12:~/NEW WWU/cs352/work352/msh$ cd ~phil/public/cs352/tesa[Kta6
+tanism3@cf405-12:/home/phil/public/cs352/testa6$ ./try
+making ...
+Running tests...
+Setting limit of open files to 30
+Simple Tests
+Simple Redirections!
+Simple Pipes!
+
+PASS Simple Tests!
+
+Full Tests ...
+Testing redirections!
+Testing pipes!
+Other tests!
+Testing Statements!
+Making REF
+Big script output differs
+View Diffs? y
+--- REF	2017-06-02 08:59:35.082274100 -0700
++++ MSH.OUT	2017-06-02 08:59:34.859341448 -0700
+@@ -61,51 +61,3 @@
+ 8
+ Pass!
+ Testing Statements!
+-Ifs most likely implemented! More tests!
+-pass if true
+-pass if false
+-pass if echo Yes | false
+-Testing nested Ifs
+-Pass
+-Pass
+-Pass
+-Pass
+-Testing while ...
+-Looping .... N is 10.
+-Looping .... N is 9.
+-Looping .... N is 8.
+-Looping .... N is 7.
+-Looping .... N is 6.
+-Looping .... N is 5.
+-Looping .... N is 4.
+-Looping .... N is 3.
+-Looping .... N is 2.
+-Looping .... N is 1.
+-Testing if in while ...
+-Looping .... N is 10.
+-Looping .... N is 9.
+-Looping .... N is 8.
+-Looping .... N is 7.
+-Looping .... N is 6.
+-Looping .... N is 5.
+-N is equal to 5!
+-Looping .... N is 4.
+-Looping .... N is 3.
+-Looping .... N is 2.
+-Looping .... N is 1.
+-Testing while in a while
+-i*j|   1   2   3   4   5   6   7   8   9  10
+---------------------------------------------
+-  1|   1   2   3   4   5   6   7   8   9  10
+-  2|   2   4   6   8  10  12  14  16  18  20
+-  3|   3   6   9  12  15  18  21  24  27  30
+-  4|   4   8  12  16  20  24  28  32  36  40
+-  5|   5  10  15  20  25  30  35  40  45  50
+-  6|   6  12  18  24  30  36  42  48  54  60
+-  7|   7  14  21  28  35  42  49  56  63  70
+-  8|   8  16  24  32  40  48  56  64  72  80
+-  9|   9  18  27  36  45  54  63  72  81  90
+- 10|  10  20  30  40  50  60  70  80  90 100
+-Testing P2
+-% % &&&&&&true true
+-% 
+\ No newline at end of file
+------------------------
+Fun and games .... 
+
+q
+^C
+^Z
+[1]+  Stopped                 ./try
+tanism3@cf405-12:/home/phil/public/cs352/testa6$ fg
+./try
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+dsaf
+fdsa
+fdsa
+asdf
+fdas
+fad
+ds
+afds
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+exit
+z^Z
+[1]+  Stopped                 ./try
+tanism3@cf405-12:/home/phil/public/cs352/testa6$ ps
+  PID TTY          TIME CMD
+10048 pts/23   00:00:00 bash
+10054 pts/23   00:00:00 try
+11500 pts/23   00:00:00 msh
+11505 pts/23   00:00:00 ps
+tanism3@cf405-12:/home/phil/public/cs352/testa6$ kill 11500
+tanism3@cf405-12:/home/phil/public/cs352/testa6$ fg
+./try
+./try: line 188: 11500 Terminated              ./msh $TOP/guess
+_____________________
+
+Tests done!
+View INFO? y
+cvs checkout: Updating msh
+U msh/Makefile
+U msh/arg_parse.c
+U msh/builtin.c
+U msh/expand.c
+U msh/findChar.c
+U msh/findComment.c
+U msh/findRedir.c
+U msh/handlePipes.c
+U msh/msh.c
+U msh/proto.h
+U msh/sigHandler.c
+U msh/stmts.c
+U msh/strmode.c
+total 7
+-rw-r--r-- 1 tanism3 grp.csci.Students  3507 Apr 17 14:42 arg_parse.c
+-rw-r--r-- 1 tanism3 grp.csci.Students  6734 May 30 14:22 builtin.c
+drwxr-xr-x 2 tanism3 grp.csci.Students     6 Jun  2 08:59 CVS
+-rw-r--r-- 1 tanism3 grp.csci.Students 12889 May 27 14:35 expand.c
+-rw-r--r-- 1 tanism3 grp.csci.Students   967 May 27 17:55 findChar.c
+-rw-r--r-- 1 tanism3 grp.csci.Students   629 May 25 15:50 findComment.c
+-rw-r--r-- 1 tanism3 grp.csci.Students  5183 May 31 12:23 findRedir.c
+-rw-r--r-- 1 tanism3 grp.csci.Students  1733 May 30 14:17 handlePipes.c
+-rw-r--r-- 1 tanism3 grp.csci.Students   320 Jun  1 09:08 Makefile
+-rw-r--r-- 1 tanism3 grp.csci.Students  4982 Jun  1 19:13 msh.c
+-rw-r--r-- 1 tanism3 grp.csci.Students   811 Jun  1 19:13 proto.h
+-rw-r--r-- 1 tanism3 grp.csci.Students   471 May 18 10:48 sigHandler.c
+-rw-r--r-- 1 tanism3 grp.csci.Students  3785 Jun  1 20:37 stmts.c
+-rw-r--r-- 1 tanism3 grp.csci.Students  4051 May  4 15:57 strmode.c
+gcc -g -Wall   -c -o msh.o msh.c
+gcc -g -Wall   -c -o arg_parse.o arg_parse.c
+gcc -g -Wall   -c -o builtin.o builtin.c
+gcc -g -Wall   -c -o expand.o expand.c
+gcc -g -Wall   -c -o strmode.o strmode.c
+gcc -g -Wall   -c -o findComment.o findComment.c
+gcc -g -Wall   -c -o findChar.o findChar.c
+gcc -g -Wall   -c -o sigHandler.o sigHandler.c
+gcc -g -Wall   -c -o findRedir.o findRedir.c
+gcc -g -Wall   -c -o handlePipes.o handlePipes.c
+gcc -g -Wall   -c -o stmts.o stmts.c
+stmts.c: In function ‘runStmt’:
+stmts.c:29:1: warning: control reaches end of non-void function [-Wreturn-type]
+ }
+ ^
+gcc   msh.o arg_parse.o builtin.o expand.o strmode.o findComment.o findChar.o sigHandler.o findRedir.o handlePipes.o stmts.o   -o msh
+Big test of msh.
+tanism3: Output differs.
+------- DIFF ---------
+--- REF	2017-06-02 08:59:35.082274100 -0700
++++ MSH.OUT	2017-06-02 08:59:34.859341448 -0700
+@@ -61,51 +61,3 @@
+ 8
+ Pass!
+ Testing Statements!
+-Ifs most likely implemented! More tests!
+-pass if true
+-pass if false
+-pass if echo Yes | false
+-Testing nested Ifs
+-Pass
+-Pass
+-Pass
+-Pass
+-Testing while ...
+-Looping .... N is 10.
+-Looping .... N is 9.
+-Looping .... N is 8.
+-Looping .... N is 7.
+[7m--More--(69%)[27m-Looping .... N is 6.
+[7m--More--(69%)[27m-Looping .... N is 5.
+[7m--More--(70%)[27m-Looping .... N is 4.
+[7m--More--(70%)[27m-Looping .... N is 3.
+[7m--More--(71%)[27m-Looping .... N is 2.
+[7m--More--(72%)[27m-Looping .... N is 1.
+[7m--More--(72%)[27m-Testing if in while ...
+[7m--More--(73%)[27m-Looping .... N is 10.
+[7m--More--(74%)[27m-Looping .... N is 9.
+[7m--More--(74%)[27m-Looping .... N is 8.
+[7m--More--(75%)[27m-Looping .... N is 7.
+[7m--More--(76%)[27m-Looping .... N is 6.
+[7m--More--(76%)[27m-Looping .... N is 5.
+[7m--More--(77%)[27m-N is equal to 5!
+[7m--More--(78%)[27m-Looping .... N is 4.
+[7m--More--(78%)[27m-Looping .... N is 3.
+[7m--More--(79%)[27m-Looping .... N is 2.
+[7m--More--(79%)[27m-Looping .... N is 1.
+[7m--More--(80%)[27m-Testing while in a while
+[7m--More--(81%)[27m-i*j|   1   2   3   4   5   6   7   8   9  10
+[7m--More--(82%)[27m---------------------------------------------
+[7m--More--(83%)[27m-  1|   1   2   3   4   5   6   7   8   9  10
+[7m--More--(85%)[27m-  2|   2   4   6   8  10  12  14  16  18  20
+[7m--More--(86%)[27m-  3|   3   6   9  12  15  18  21  24  27  30
+[7m--More--(87%)[27m-  4|   4   8  12  16  20  24  28  32  36  40
+[7m--More--(89%)[27m-  5|   5  10  15  20  25  30  35  40  45  50
+[7m--More--(90%)[27m-  6|   6  12  18  24  30  36  42  48  54  60
+[7m--More--(91%)[27m-  7|   7  14  21  28  35  42  49  56  63  70
+[7m--More--(93%)[27m-  8|   8  16  24  32  40  48  56  64  72  80
+[7m--More--(94%)[27m-  9|   9  18  27  36  45  54  63  72  81  90
+[7m--More--(95%)[27m- 10|  10  20  30  40  50  60  70  80  90 100
+[7m--More--(97%)[27m-Testing P2[K
+[7m--More--(97%)[27m-% % &&&&&&true true
+[7m--More--(98%)[27m-% [K
+[7m--More--(98%)[27m\ No newline at end of file
+[7m--More--(99%)[27m------- End DIFF ---------
+tanism3@cf405-12:/home/phil/public/cs352/testa6$ 
+tanism3@cf405-12:/home/phil/public/cs352/testa6$ 
+tanism3@cf405-12:/home/phil/public/cs352/testa6$ 
+tanism3@cf405-12:/home/phil/public/cs352/testa6$ 
+tanism3@cf405-12:/home/phil/public/cs352/testa6$ 
+tanism3@cf405-12:/home/phil/public/cs352/testa6$ 
+tanism3@cf405-12:/home/phil/public/cs352/testa6$ 
+tanism3@cf405-12:/home/phil/public/cs352/testa6$ exit
+exit
+
+Script done on Fri 02 Jun 2017 09:00:32 AM PDT

@@ -1,0 +1,6028 @@
+%!PS-Adobe-3.0
+%%Title: arg_parse.c, builtin.c, CVS, expand.c, findChar.c, findComment.c, findRedir.c, handlePipes.c, Makefile, msh.c
+%%For: Marshall Tanis
+%%Creator: a2ps version 4.14
+%%CreationDate: Fri Jun  2 08:52:20 2017
+%%BoundingBox: 24 24 588 768
+%%DocumentData: Clean7Bit
+%%Orientation: Landscape
+%%Pages: 22
+%%PageOrder: Ascend
+%%DocumentMedia: Letter 612 792 0 () ()
+%%DocumentNeededResources: font Courier
+%%+ font Courier-Bold
+%%+ font Courier-BoldOblique
+%%+ font Courier-Oblique
+%%+ font Helvetica
+%%+ font Helvetica-Bold
+%%+ font Symbol
+%%+ font Times-Bold
+%%+ font Times-Roman
+%%DocumentProcessColors: Black 
+%%DocumentSuppliedResources: procset a2ps-a2ps-hdr
+%%+ procset a2ps-black+white-Prolog
+%%+ encoding ISO-8859-1Encoding
+%%EndComments
+/a2psdict 200 dict def
+a2psdict begin
+%%BeginProlog
+%%Copyright: (c) 1988, 89, 90, 91, 92, 93 Miguel Santana
+%%Copyright: (c) 1995, 96, 97, 98 Akim Demaille, Miguel Santana
+% Check PostScript language level.
+/languagelevel where {
+  pop /gs_languagelevel languagelevel def
+} {
+  /gs_languagelevel 1 def
+} ifelse
+
+% EPSF import as in the Red Book
+/BeginInclude {
+  /b4_Inc_state save def    		% Save state for cleanup
+  /dict_count countdictstack def	% Count objects on dict stack
+  /op_count count 1 sub def		% Count objects on operand stack 
+  userdict begin
+    0 setgray 0 setlinecap
+    1 setlinewidth 0 setlinejoin
+    10 setmiterlimit [ ] 0 setdash newpath
+    gs_languagelevel 1 ne {
+      false setstrokeadjust false setoverprint 
+    } if
+} bind def
+
+/EndInclude {
+  count op_count sub { pos } repeat	% Clean up stacks
+  countdictstack dict_count sub { end } repeat
+  b4_Inc_state restore
+} bind def
+
+/BeginEPSF {
+  BeginInclude
+  /showpage { } def
+} bind def
+
+/EndEPSF {
+  EndInclude
+} bind def
+
+% Page prefeed
+/page_prefeed {         % bool -> -
+  statusdict /prefeed known {
+    statusdict exch /prefeed exch put
+  } {
+    pop
+  } ifelse
+} bind def
+
+/deffont {
+  findfont exch scalefont def
+} bind def
+
+/reencode_font {
+  findfont reencode 2 copy definefont pop def
+} bind def
+
+% Function c-show (str => -)
+% centers text only according to x axis.
+/c-show { 
+  dup stringwidth pop
+  2 div neg 0 rmoveto
+  show
+} bind def
+
+% Function l-show (str => -)
+% prints texts so that it ends at currentpoint
+/l-show {
+  dup stringwidth pop neg 
+  0 
+  rmoveto show
+} bind def
+
+% center-fit show (str w => -)
+% show centered, and scale currentfont so that the width is less than w
+/cfshow {
+  exch dup stringwidth pop
+  % If the title is too big, try to make it smaller
+  3 2 roll 2 copy
+  gt
+  { % if, i.e. too big
+    exch div
+    currentfont exch scalefont setfont
+  } { % ifelse
+    pop pop 
+  }
+  ifelse
+  c-show			% center title
+} bind def
+
+% Return the y size of the current font
+% - => fontsize
+/currentfontsize {
+  currentfont /FontType get 0 eq {
+    currentfont /FontMatrix get 3 get
+  }{
+    currentfont /FontMatrix get 3 get 1000 mul
+  } ifelse
+} bind def
+
+% reencode the font
+% <encoding-vector> <fontdict> -> <newfontdict>
+/reencode { %def
+  dup length 5 add dict begin
+    { %forall
+      % <vector> <key> <val>
+      1 index /FID ne 
+      { def }{ pop pop } ifelse
+    } forall
+    /Encoding exch def % -
+
+    % Use the font's bounding box to determine the ascent, descent,
+    % and overall height; don't forget that these values have to be
+    % transformed using the font's matrix.
+    % We use `load' because sometimes BBox is executable, sometimes not.
+    % Since we need 4 numbers an not an array avoid BBox from being executed
+    /FontBBox load aload pop
+    FontMatrix transform /Ascent exch def pop
+    FontMatrix transform /Descent exch def pop
+    /FontHeight Ascent Descent sub def
+
+    % Get the underline position and thickness if they're defined.
+    % Use 1 if they are not defined.
+    currentdict /FontInfo 2 copy known
+    { get
+      /UnderlinePosition 2 copy % <FontInfo> /UP <FontInfo> /UP
+      2 copy known
+      { get }{ pop pop 1 } ifelse
+      0 exch FontMatrix transform exch pop
+      def % <FontInfo>
+
+      /UnderlineThickness 2 copy % <FontInfo> /UT <FontInfo> /UT
+      2 copy known
+      { get }{ pop pop 1 } ifelse
+      0 exch FontMatrix transform exch pop
+      def % <FontInfo>
+      pop % -
+    }{ pop pop
+    } ifelse
+
+    currentdict
+  end 
+} bind def
+
+% composite fonts for ASCII-EUC mixed strings
+% Version 1.2 1/31/1990
+% Original Ken'ichi HANDA (handa@etl.go.jp)
+% Modified Norio Katayama (katayama@rd.nacsis.ac.jp),1998
+% Extend & Fix Koji Nakamaru (maru@on.cs.keio.ac.jp), 1999
+% Anyone can freely copy, modify, distribute this program.
+
+/copyfont {	% font-dic extra-entry-count  copyfont  font-dic
+	1 index maxlength add dict begin
+	{	1 index /FID ne 2 index /UniqueID ne and
+		{def} {pop pop} ifelse
+	} forall
+	currentdict
+	end
+} bind def
+
+/compositefont { % ASCIIFontName EUCFontName RomanScale RomanOffset Rot(T/F) compositefont font
+    /RomanRotation exch def
+    /RomanOffset exch def
+    /RomanScale exch def
+    userdict /fixeucfont_dict known not {
+	userdict begin
+	    /fixeucfont_dict 2 dict begin
+		/UpperByteEncoding [
+		    16#00 1 16#20 { pop 0 } for
+		    16#21 1 16#28 { 16#20 sub } for
+		    16#29 1 16#2F { pop 0 } for
+		    16#30 1 16#74 { 16#27 sub } for
+		    16#75 1 16#FF { pop 0 } for
+		] def
+	        /LowerByteEncoding [
+		    16#00 1 16#A0 { pop /.notdef } for
+		    16#A1 1 16#FE { 16#80 sub 16 2 string cvrs
+				    (cXX) dup 1 4 -1 roll
+				    putinterval cvn } for
+		    /.notdef
+		] def
+		currentdict
+	    end def
+	end
+    } if
+    findfont dup /FontType get 0 eq {
+	14 dict begin
+	    %
+	    % 7+8 bit EUC font
+	    %
+	    12 dict begin
+		/EUCFont exch def
+		/FontInfo (7+8 bit EUC font) readonly def
+		/PaintType 0 def
+		/FontType 0 def
+		/FontMatrix matrix def
+		% /FontName
+		/Encoding fixeucfont_dict /UpperByteEncoding get def
+		/FMapType 2 def
+		EUCFont /WMode known
+		{ EUCFont /WMode get /WMode exch def }
+		{ /WMode 0 def } ifelse
+		/FDepVector [
+		    EUCFont /FDepVector get 0 get
+		    [ 16#21 1 16#28 {} for 16#30 1 16#74 {} for ]
+		    {
+			13 dict begin
+			    /EUCFont EUCFont def
+			    /UpperByte exch 16#80 add def	
+			    % /FontName
+			    /FontInfo (EUC lower byte font) readonly def
+			    /PaintType 0 def
+			    /FontType 3 def
+			    /FontMatrix matrix def
+			    /FontBBox {0 0 0 0} def
+			    /Encoding
+				fixeucfont_dict /LowerByteEncoding get def
+			    % /UniqueID
+			    % /WMode
+			    /BuildChar {
+				gsave
+				exch dup /EUCFont get setfont
+				/UpperByte get
+				2 string
+				dup 0 4 -1 roll put
+				dup 1 4 -1 roll put
+				dup stringwidth setcharwidth
+				0 0 moveto show
+				grestore
+			    } bind def
+			    currentdict
+			end
+			/lowerbytefont exch definefont
+		    } forall
+		] def
+		currentdict
+	    end
+	    /eucfont exch definefont
+	    exch
+	    findfont 1 copyfont dup begin
+		RomanRotation {
+			/FontMatrix FontMatrix
+			[ 0 RomanScale neg RomanScale 0 RomanOffset neg 0 ]
+			matrix concatmatrix def
+		}{
+			/FontMatrix FontMatrix
+			[ RomanScale 0 0 RomanScale 0 RomanOffset ] matrix concatmatrix
+			def
+			/CDevProc
+			    {pop pop pop pop 0 exch -1000 exch 2 div 880} def
+		} ifelse
+	    end
+	    /asciifont exch definefont
+	    exch
+	    /FDepVector [ 4 2 roll ] def
+	    /FontType 0 def
+	    /WMode 0 def
+	    /FMapType 4 def
+	    /FontMatrix matrix def
+	    /Encoding [0 1] def
+	    /FontBBox {0 0 0 0} def
+%	    /FontHeight 1.0 def % XXXX
+	    /FontHeight RomanScale 1.0 ge { RomanScale }{ 1.0 } ifelse def
+	    /Descent -0.3 def   % XXXX
+	    currentdict
+	end
+	/tmpfont exch definefont
+	pop
+	/tmpfont findfont
+    }{
+	pop findfont 0 copyfont
+    } ifelse
+} def	
+
+/slantfont {	% FontName slant-degree  slantfont  font'
+    exch findfont 1 copyfont begin
+    [ 1 0 4 -1 roll 1 0 0 ] FontMatrix exch matrix concatmatrix
+    /FontMatrix exch def
+    currentdict
+    end
+} def
+
+% Function print line number (<string> # -)
+/# {
+  gsave
+    sx cw mul neg 2 div 0 rmoveto
+    f# setfont
+    c-show
+  grestore
+} bind def
+
+% -------- Some routines to enlight plain b/w printings ---------
+
+% Underline
+% width --
+/dounderline {
+  currentpoint
+  gsave
+    moveto
+    0 currentfont /Descent get currentfontsize mul rmoveto
+    0 rlineto
+    stroke
+  grestore
+} bind def
+
+% Underline a string
+% string --
+/dounderlinestring {
+  stringwidth pop
+  dounderline
+} bind def
+
+/UL {
+  /ul exch store
+} bind def
+
+% Draw a box of WIDTH wrt current font
+% width --
+/dobox {
+  currentpoint
+  gsave
+    newpath
+    moveto
+    0 currentfont /Descent get currentfontsize mul rmoveto
+    dup 0 rlineto
+    0 currentfont /FontHeight get currentfontsize mul rlineto
+    neg 0 rlineto
+    closepath
+    stroke
+  grestore
+} bind def
+
+/BX {
+  /bx exch store
+} bind def
+
+% Box a string
+% string --
+/doboxstring {
+  stringwidth pop
+  dobox
+} bind def
+
+%
+% ------------- Color routines ---------------
+%
+/FG /setrgbcolor load def
+
+% Draw the background
+% width --
+/dobackground {
+  currentpoint
+  gsave
+    newpath
+    moveto
+    0 currentfont /Descent get currentfontsize mul rmoveto
+    dup 0 rlineto
+    0 currentfont /FontHeight get currentfontsize mul rlineto
+    neg 0 rlineto
+    closepath
+    bgcolor aload pop setrgbcolor
+    fill
+  grestore
+} bind def
+
+% Draw bg for a string
+% string --
+/dobackgroundstring {
+  stringwidth pop
+  dobackground
+} bind def
+
+
+/BG {
+  dup /bg exch store
+  { mark 4 1 roll ] /bgcolor exch store } if
+} bind def
+
+
+/Show {
+  bg { dup dobackgroundstring } if
+  ul { dup dounderlinestring } if
+  bx { dup doboxstring } if
+  show
+} bind def
+
+% Function T(ab), jumps to the n-th tabulation in the current line
+/T {
+  cw mul x0 add
+  bg { dup currentpoint pop sub dobackground } if
+  ul { dup currentpoint pop sub dounderline } if
+  bx { dup currentpoint pop sub dobox } if
+  y0 moveto
+} bind def
+
+% Function n: move to the next line
+/n {
+  /y0 y0 bfs sub store
+  x0 y0 moveto
+} bind def
+
+% Function N: show and move to the next line
+/N {
+  Show
+  /y0 y0 bfs sub store
+  x0 y0 moveto
+} bind def
+
+/S {
+  Show
+} bind def
+
+%%BeginResource: procset a2ps-a2ps-hdr 2.0 2
+%%Copyright: (c) 1988, 89, 90, 91, 92, 93 Miguel Santana
+%%Copyright: (c) 1995, 96, 97, 98 Akim Demaille, Miguel Santana
+% Function title: prints page header.
+% <ct> <rt> <lt> are passed as argument
+/title { 
+  % 1. Draw the background
+  x v get y v get moveto
+  gsave
+    0 th 2 div neg rmoveto 
+    th setlinewidth
+    0.95 setgray
+    pw 0 rlineto stroke
+  grestore
+  % 2. Border it
+  gsave
+    0.7 setlinewidth
+    pw 0 rlineto
+    0 th neg rlineto
+    pw neg 0 rlineto
+    closepath stroke
+  grestore
+  % stk: ct rt lt
+  x v get y v get th sub 1 add moveto
+%%IncludeResource: font Helvetica
+  fHelvetica fnfs 0.8 mul scalefont setfont
+  % 3. The left title
+  gsave
+    dup stringwidth pop fnfs 0.8 mul add exch % leave space took on stack
+    fnfs 0.8 mul hm rmoveto
+    show			% left title
+  grestore
+  exch
+  % stk: ct ltw rt
+  % 4. the right title
+  gsave
+    dup stringwidth pop fnfs 0.8 mul add exch % leave space took on stack
+    dup
+    pw exch stringwidth pop fnfs 0.8 mul add sub
+    hm
+    rmoveto
+    show			% right title
+  grestore
+  % stk: ct ltw rtw
+  % 5. the center title
+  gsave
+    pw 3 1 roll
+    % stk: ct pw ltw rtw
+    3 copy 
+    % Move to the center of the left room
+    sub add 2 div hm rmoveto
+    % What is the available space in here?
+    add sub fnfs 0.8 mul sub fnfs 0.8 mul sub
+    % stk: ct space_left
+%%IncludeResource: font Helvetica-Bold
+  fHelvetica-Bold fnfs scalefont setfont
+    cfshow
+  grestore
+} bind def
+
+% Function border: prints virtual page border
+/border { %def
+  gsave				% print four sides
+    0 setgray
+    x v get y v get moveto
+    0.7 setlinewidth		% of the square
+    pw 0 rlineto
+    0 ph neg rlineto
+    pw neg 0 rlineto
+    closepath stroke
+  grestore
+} bind def
+
+% Function water: prints a water mark in background
+/water { %def
+  gsave
+    scx scy moveto rotate
+%%IncludeResource: font Times-Bold
+  fTimes-Bold 100 scalefont setfont
+    .97 setgray
+    dup stringwidth pop 2 div neg -50 rmoveto
+    show
+  grestore
+} bind def
+
+% Function rhead: prints the right header
+/rhead {  %def
+  lx ly moveto
+  fHelvetica fnfs 0.8 mul scalefont setfont
+  l-show
+} bind def
+
+% Function footer (cf rf lf -> -)
+/footer {
+  fHelvetica fnfs 0.8 mul scalefont setfont
+  dx dy moveto
+  show
+
+  snx sny moveto
+  l-show
+  
+  fnx fny moveto
+  c-show
+} bind def
+%%EndResource
+%%BeginResource: procset a2ps-black+white-Prolog 2.0 1
+
+% Function T(ab), jumps to the n-th tabulation in the current line
+/T { 
+  cw mul x0 add y0 moveto
+} bind def
+
+% Function n: move to the next line
+/n { %def
+  /y0 y0 bfs sub store
+  x0 y0 moveto
+} bind def
+
+% Function N: show and move to the next line
+/N {
+  Show
+  /y0 y0 bfs sub store
+  x0 y0 moveto
+}  bind def
+
+/S {
+  Show
+} bind def
+
+/p {
+  false UL
+  false BX
+  fCourier bfs scalefont setfont
+  Show
+} bind def
+
+/sy {
+  false UL
+  false BX
+  fSymbol bfs scalefont setfont
+  Show
+} bind def
+
+/k {
+  false UL
+  false BX
+  fCourier-Oblique bfs scalefont setfont
+  Show
+} bind def
+
+/K {
+  false UL
+  false BX
+  fCourier-Bold bfs scalefont setfont
+  Show
+} bind def
+
+/c {
+  false UL
+  false BX
+  fCourier-Oblique bfs scalefont setfont
+  Show
+} bind def
+
+/C {
+  false UL
+  false BX
+  fCourier-BoldOblique bfs scalefont setfont
+  Show 
+} bind def
+
+/l {
+  false UL
+  false BX
+  fHelvetica bfs scalefont setfont
+  Show
+} bind def
+
+/L {
+  false UL
+  false BX
+  fHelvetica-Bold bfs scalefont setfont
+  Show 
+} bind def
+
+/str{
+  false UL
+  false BX
+  fTimes-Roman bfs scalefont setfont
+  Show
+} bind def
+
+/e{
+  false UL
+  true BX
+  fHelvetica-Bold bfs scalefont setfont
+  Show
+} bind def
+
+%%EndResource
+%%EndProlog
+%%BeginSetup
+%%IncludeResource: font Courier
+%%IncludeResource: font Courier-Oblique
+%%IncludeResource: font Courier-Bold
+%%IncludeResource: font Times-Roman
+%%IncludeResource: font Symbol
+%%IncludeResource: font Courier-BoldOblique
+%%BeginResource: encoding ISO-8859-1Encoding
+/ISO-8859-1Encoding [
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quoteright 
+/parenleft /parenright /asterisk /plus /comma /minus /period /slash 
+/zero /one /two /three /four /five /six /seven 
+/eight /nine /colon /semicolon /less /equal /greater /question 
+/at /A /B /C /D /E /F /G 
+/H /I /J /K /L /M /N /O 
+/P /Q /R /S /T /U /V /W 
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore 
+/quoteleft /a /b /c /d /e /f /g 
+/h /i /j /k /l /m /n /o 
+/p /q /r /s /t /u /v /w 
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef 
+/space /exclamdown /cent /sterling /currency /yen /brokenbar /section 
+/dieresis /copyright /ordfeminine /guillemotleft /logicalnot /hyphen /registered /macron 
+/degree /plusminus /twosuperior /threesuperior /acute /mu /paragraph /bullet 
+/cedilla /onesuperior /ordmasculine /guillemotright /onequarter /onehalf /threequarters /questiondown 
+/Agrave /Aacute /Acircumflex /Atilde /Adieresis /Aring /AE /Ccedilla 
+/Egrave /Eacute /Ecircumflex /Edieresis /Igrave /Iacute /Icircumflex /Idieresis 
+/Eth /Ntilde /Ograve /Oacute /Ocircumflex /Otilde /Odieresis /multiply 
+/Oslash /Ugrave /Uacute /Ucircumflex /Udieresis /Yacute /Thorn /germandbls 
+/agrave /aacute /acircumflex /atilde /adieresis /aring /ae /ccedilla 
+/egrave /eacute /ecircumflex /edieresis /igrave /iacute /icircumflex /idieresis 
+/eth /ntilde /ograve /oacute /ocircumflex /otilde /odieresis /divide 
+/oslash /ugrave /uacute /ucircumflex /udieresis /yacute /thorn /ydieresis 
+] def
+%%EndResource
+% Initialize page description variables.
+/sh 612 def
+/sw 792 def
+/llx 24 def
+/urx 768 def
+/ury 588 def
+/lly 24 def
+/#copies 1 def
+/th 15.000000 def
+/fnfs 11 def
+/bfs 7.493857 def
+/cw 4.496314 def
+
+% Dictionary for ISO-8859-1 support
+/iso1dict 8 dict begin
+  /fCourier ISO-8859-1Encoding /Courier reencode_font
+  /fCourier-Bold ISO-8859-1Encoding /Courier-Bold reencode_font
+  /fCourier-BoldOblique ISO-8859-1Encoding /Courier-BoldOblique reencode_font
+  /fCourier-Oblique ISO-8859-1Encoding /Courier-Oblique reencode_font
+  /fHelvetica ISO-8859-1Encoding /Helvetica reencode_font
+  /fHelvetica-Bold ISO-8859-1Encoding /Helvetica-Bold reencode_font
+  /fTimes-Bold ISO-8859-1Encoding /Times-Bold reencode_font
+  /fTimes-Roman ISO-8859-1Encoding /Times-Roman reencode_font
+currentdict end def
+/bgcolor [ 0 0 0 ] def
+/bg false def
+/ul false def
+/bx false def
+% The font for line numbering
+/f# /Helvetica findfont bfs .6 mul scalefont def
+/fSymbol /Symbol findfont def
+/hm fnfs 0.25 mul def
+/pw
+   cw 81.400000 mul
+def
+/ph
+   522.321860 th add
+def
+/pmw urx llx sub pw 2 mul sub 1 div def
+/pmh 0 def
+/v 0 def
+/x [
+  0
+  dup pmw add pw add
+] def
+/y [
+  pmh ph add 0 mul ph add
+  dup
+] def
+/scx sw 2 div def
+/scy sh 2 div def
+/snx urx def
+/sny lly 2 add def
+/dx llx def
+/dy sny def
+/fnx scx def
+/fny dy def
+/lx snx def
+/ly ury fnfs 0.8 mul sub def
+/sx 0 def
+/tab 8 def
+/x0 0 def
+/y0 0 def
+%%EndSetup
+
+%%Page: (1-2) 1
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(/*    $Id: arg_parse.c,v 1.2 2017/04/17 21:42:56 tanism3 Exp $    */) c n
+() p n
+() N
+(/* Author: Marshall Tanis) c n
+( * CS 352) N
+( * Minishell */) N
+() p n
+() N
+() N
+() N
+(#include) K
+( <stdlib.h>) p n
+(#include) K
+( <stdio.h>) p n
+(#include) K
+( <string.h>) p n
+(#include) K
+( ") p
+(proto.h) str
+(") p n
+() N
+() N
+(char) k
+( **arg_parse\() p
+(char) k
+( *line, ) p
+(int) k
+( *argcp\){) p n
+(  ) S
+(/* declare commonly used variables */) c n
+(  ) p
+(char) k
+( **args;) p n
+(  ) S
+(int) k
+( numArgs = 0;) p n
+(  ) S
+(int) k
+( count = 0;) p n
+(  ) S
+(int) k
+( let=0;) p n
+(  ) S
+(/* count the number of arguments in the line */) c n
+(  ) p
+(while) K
+(\(line[let] != ') p
+(\\0) str
+('\){) p n
+(    ) S
+(/* switch on the character, space, quote or other */) c n
+(    ) p
+(switch) K
+( \(line[let]\){) p n
+(      ) S
+(/* if it's a space, skip it */) c n
+(      ) p
+(case) K
+( ') p
+( ) str
+(':) p n
+(        let ++;) N
+(        ) S
+(break) K
+(;) p n
+(      ) S
+(/* if it's a quote, find the matching quote, otherwise return error */) c n
+(      ) p
+(case) K
+( ') p
+(") str
+(':) p n
+(        let ++;) N
+(        numArgs ++;) N
+(        ) S
+(while) K
+(\(line[let] != ') p
+(") str
+('\){) p n
+(          ) S
+(if) K
+(\(line[let] == ') p
+(\\0) str
+('\){) p n
+(            dprintf\(2, ") S
+(There was an odd number of quotes\\n) str
+("\);) p n
+(            *argcp = 0;) N
+(            ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(          }) N
+(          let ++;) N
+(        }) N
+(        ) S
+(while) K
+(\(line[let] != ') p
+( ) str
+(' && line[let] != ') p
+(\\0) str
+('\){) p n
+(          let ++;) N
+(        }) N
+(        let ++;) N
+() N
+(        ) S
+(break) K
+(;) p n
+(      ) S
+(/* if it's an end of string character, break out of the switch */) c n
+(      ) p
+(case) K
+( ') p
+(\\0) str
+(':) p n
+(        ) S
+(break) K
+(;) p n
+(      ) S
+(/* otherwise increment value of numArgs and find next space */) c n
+(      ) p
+(default) K
+(:) p n
+(        numArgs ++;) N
+(        ) S
+(while) K
+(\(line[let] != ') p
+( ) str
+(' && line[let] != ') p
+(\\0) str
+('\){) p n
+(          ) S
+(if) K
+(\(line[let] == ') p
+(") str
+('\){) p n
+(            let ++;) N
+(            ) S
+(while) K
+(\(line[let] != ') p
+(") str
+('\){) p n
+(              ) S
+(if) K
+(\(line[let] == ') p
+(\\0) str
+('\){) p n
+(                dprintf\(2, ") S
+(There was an odd number of quotes\\n) str
+("\);) p n
+(                *argcp = 0;) N
+(                ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(              }) N
+(              let ++;) N
+(            }) N
+(          }) N
+(          let ++;) N
+(        }) N
+(        let ++;) N
+(arg_parse.c) (Page 1/3) (Apr 17, 17 14:42) title
+border
+/v 1 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(        ) p
+(break) K
+(;) p n
+(      }) N
+(  }) N
+(  *argcp = numArgs;) N
+(  ) S
+(if) K
+(\(numArgs == 0\){) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  ) S
+(/* free space for those arguments */) c n
+(  ) p
+(if) K
+(\(\(args = \() p
+(char) k
+( **\) malloc \() p
+(sizeof) K
+(\() p
+(char) k
+( *\) * \(numArgs + 1\)\)\)< 0\){) p n
+(    perror\(") S
+(malloc) str
+("\);) p n
+(  }) N
+(  let = 0;) N
+(  ) S
+(/* point to the address of the first letter of each argument */) c n
+(  ) p
+(while) K
+(\(line[let] != ') p
+(\\0) str
+('\){) p n
+(    ) S
+(/* same switch statement as before */) c n
+(    ) p
+(switch) K
+( \(line[let]\){) p n
+(      ) S
+(case) K
+( ') p
+( ) str
+(':) p n
+(        let ++;) N
+(        ) S
+(break) K
+(;) p n
+(      ) S
+(/* if it's a quote, remove the first quote, take the arg, then skip till l) c n
+(ast quote */) N
+(      ) p
+(case) K
+( ') p
+(") str
+(':) p n
+(        let ++;) N
+(        args[count] = &line[let];) N
+(        ) S
+(while) K
+(\(line[let] != ') p
+(") str
+(' && line[let] != ') p
+(\\0) str
+('\){) p n
+(          let ++;) N
+(        }) N
+(        ) S
+(if) K
+(\(line[let] != ') p
+(\\0) str
+('\){) p n
+(          ) S
+(int) k
+( tmpIX = let;) p n
+(          ) S
+(while) K
+(\(line[tmpIX] != ') p
+(\\0) str
+('\){) p n
+(            line[tmpIX] = line[tmpIX + 1];) N
+(            tmpIX ++;) N
+(          }) N
+(        }) N
+(        ) S
+(while) K
+(\(line[let] != ') p
+( ) str
+(' && line[let] != ') p
+(\\0) str
+('\){) p n
+(          let ++;) N
+(        }) N
+(        line[let] = ') S
+(\\0) str
+(';) p n
+(        let ++;) N
+(        count ++;) N
+(        ) S
+(break) K
+(;) p n
+(      ) S
+(case) K
+( ') p
+(\\0) str
+(':) p n
+(        ) S
+(break) K
+(;) p n
+(      ) S
+(/* otherwise just take arg as standard input, while looking for quotes */) c n
+(      ) p
+(default) K
+(:) p n
+(        args[count] = &line[let];) N
+(        ) S
+(while) K
+(\(line[let] != ') p
+( ) str
+(' && line[let] != ') p
+(\\0) str
+('\){) p n
+(          ) S
+(if) K
+(\(line[let] == ') p
+(") str
+('\){) p n
+(            ) S
+(int) k
+( tmpIX = let;) p n
+(            ) S
+(while) K
+(\(line[tmpIX] != ') p
+(\\0) str
+('\){) p n
+(              line[tmpIX] = line[tmpIX + 1];) N
+(              tmpIX ++;) N
+(            }) N
+(            ) S
+(while) K
+(\(line[let] != ') p
+(") str
+(' && line[let] != ') p
+(\\0) str
+('\){) p n
+(              let ++;) N
+(            }) N
+(            tmpIX = let;) N
+(            ) S
+(while) K
+(\(line[tmpIX] != ') p
+(\\0) str
+('\){) p n
+(              line[tmpIX] = line[tmpIX + 1];) N
+(              tmpIX ++;) N
+(            }) N
+(          }) N
+(          let ++;) N
+(        }) N
+(        line[let] = ') S
+(\\0) str
+(';) p n
+(        let ++;) N
+(        count ++;) N
+(        ) S
+(break) K
+(;) p n
+(      }) N
+(arg_parse.c) (Page 2/3) (Apr 17, 17 14:42) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(arg_parse.c) (1/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (3) 2
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(  }) p n
+(  args[numArgs] = ) S
+(NULL) K
+(;) p n
+(  ) S
+(return) K
+( args;) p n
+(}) N
+(arg_parse.c) (Page 3/3) (Apr 17, 17 14:42) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(arg_parse.c) (2/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (1-2) 3
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(/*    $Id: builtin.c,v 1.27 2017/05/30 21:22:12 tanism3 Exp $    */) c n
+() p n
+() N
+(/* Author: Marshall Tanis) c n
+( * CS 352) N
+( * Minishell */) N
+() p n
+() N
+() N
+() N
+(#include) K
+( <stdlib.h>) p n
+(#include) K
+( <stdio.h>) p n
+(#include) K
+( <string.h>) p n
+(#include) K
+( <unistd.h>) p n
+(#include) K
+( <sys/stat.h>) p n
+(#include) K
+( <sys/types.h>) p n
+(#include) K
+( <time.h>) p n
+(#include) K
+( <pwd.h>) p n
+(#include) K
+( <grp.h>) p n
+(#include) K
+( <errno.h>) p n
+(#include) K
+( <bsd/string.h>) p n
+(#include) K
+( ") p
+(proto.h) str
+(") p n
+() N
+(/* built in args[0]s array */) c n
+(static) K
+( ) p
+(char) k
+( *builtIns[] = {") p
+(exit) str
+(", ") p
+(aecho) str
+(", ") p
+(envset) str
+(", ") p
+(envunset) str
+(", ") p
+(cd) str
+(", ") p
+(shift) str
+(", ") p
+(unshift) str
+(",) p n
+( ") S
+(sstat) str
+(", ") p
+(read) str
+("};) p n
+() N
+(/* tests to see if the args[0] is a builtin, returns 1 for yes, 0 for no */) c n
+(int) k
+( isBuiltIn\() p
+(char) k
+( **args, ) p
+(int) k
+( argcp\){) p n
+(  ) S
+(int) k
+( ix = 0;) p n
+(  ) S
+(/* test and set which args[0] is being called */) c n
+(  ) p
+(while) K
+(\(builtIns[ix] != ') p
+(\\0) str
+('\){) p n
+(    ) S
+(if) K
+(\(strcmp\(builtIns[ix], args[0]\) == 0\){) p n
+(      ) S
+(return) K
+( 1;) p n
+(    }) N
+(    ix ++;) N
+(  }) N
+(  ) S
+(return) K
+( 0;) p n
+(}) N
+() N
+(int) k
+( exBuiltIn\() p
+(char) k
+( **args, ) p
+(int) k
+( argcp, ) p
+(int) k
+( outfd, ) p
+(int) k
+( infd, ) p
+(int) k
+( newErr\){) p n
+(  ) S
+(/* execute the args[0] based on testing the first letter of the args[0]*/) c n
+(  ) p
+(int) k
+( ix = 1;) p n
+(  ) S
+(switch) K
+( \(args[0][0]\){) p n
+(    ) S
+(case) K
+( ') p
+(e) str
+(':) p n
+(      ) S
+(if) K
+(\(strcmp\(args[0], builtIns[0]\) == 0\){) p n
+(        ) S
+(if) K
+(\(args[1] != ') p
+(\\0) str
+('\){) p n
+(          exit\(atoi\(args[1]\)\);) N
+(        }) N
+(        ) S
+(else) K
+({) p n
+(          exit\(0\);) N
+(        }) N
+(        ) S
+(break) K
+(;) p n
+(      }) N
+(      ) S
+(else) K
+( ) p
+(if) K
+(\(strcmp\(args[0], builtIns[2]\) == 0\){) p n
+(        ) S
+(if) K
+(\(args[1] == ) p
+(NULL) K
+( || args[2] == ) p
+(NULL) K
+(\){) p n
+(          dprintf\(newErr, ") S
+(Please provide a name and a value in order to set the variable\\n) str
+("\);) p n
+(          ) S
+(return) K
+( 1;) p n
+(        }) N
+(        ) S
+(else) K
+({) p n
+(          ) S
+(int) k
+( result = setenv\(args[1], args[2], 1\);) p n
+(          ) S
+(if) K
+(\(result < 0\){) p n
+(            dprintf\(newErr,") S
+(setenv) str
+("\);) p n
+(            ) S
+(return) K
+( 1;) p n
+(          }) N
+(          ) S
+(break) K
+(;) p n
+(        }) N
+(      }) N
+(      ) S
+(else) K
+( ) p
+(if) K
+(\(strcmp\(args[0], builtIns[3]\) == 0\){) p n
+(builtin.c) (Page 1/4) (May 31, 17 12:01) title
+border
+/v 1 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(        ) p
+(if) K
+(\(args[1] == ) p
+(NULL) K
+(\){) p n
+(          dprintf\(newErr, ") S
+(Please provide the name of the variable to unset\\n) str
+("\);) p n
+(          ) S
+(return) K
+( 1;) p n
+(        }) N
+(        ) S
+(else) K
+({) p n
+(          ) S
+(int) k
+( result = unsetenv\(args[1]\);) p n
+(          ) S
+(if) K
+(\(result < 0\){) p n
+(            dprintf\(newErr,") S
+(unsetenv) str
+("\);) p n
+(            ) S
+(return) K
+( 1;) p n
+(          }) N
+(          ) S
+(break) K
+(;) p n
+(        }) N
+(      }) N
+() N
+(    ) S
+(case) K
+( ') p
+(a) str
+(':) p n
+(      ) S
+(while) K
+(\(ix < argcp - 1\){) p n
+(        ) S
+(if) K
+(\(strcmp\(args[ix], ") p
+(-n) str
+("\) != 0\){) p n
+(          dprintf\(outfd, ") S
+(%s ) str
+(",args[ix]\);) p n
+(          ix ++;) N
+(        }) N
+(        ) S
+(else) K
+({) p n
+(          ix ++;) N
+(        }) N
+(      }) N
+(      ) S
+(if) K
+(\(argcp > 1\){) p n
+(        ) S
+(if) K
+(\(strcmp\(args[1], ") p
+(-n) str
+("\) == 0\){) p n
+(          dprintf\(outfd, ") S
+(%s) str
+(", args[ix]\);) p n
+(          ) S
+(break) K
+(;) p n
+(        }) N
+(        ) S
+(else) K
+({) p n
+(          dprintf\(outfd, ") S
+(%s\\n) str
+(", args[ix]\);) p n
+(        }) N
+(      }) N
+(      ) S
+(if) K
+(\(argcp == 1\){) p n
+(        dprintf\(outfd,") S
+(\\n) str
+("\);) p n
+(      }) N
+(      ) S
+(break) K
+(;) p n
+(    ) S
+(case) K
+( ') p
+(c) str
+(':) p n
+(      ) S
+(if) K
+(\(args[1] == ) p
+(NULL) K
+(\){) p n
+(        ) S
+(char) k
+( *home = getenv\(") p
+(HOME) str
+("\);) p n
+(        ) S
+(if) K
+(\(home == ) p
+(NULL) K
+(\){) p n
+(          dprintf\(newErr, ") S
+(The HOME environment variable is not set, and no directory provided\\n) str
+("\);) p n
+(          ) S
+(return) K
+( 1;) p n
+(        }) N
+(        ) S
+(int) k
+( result = chdir\(home\);) p n
+(        ) S
+(if) K
+(\(result < 0\){) p n
+(          dprintf\(newErr, ") S
+(chdir\\n) str
+("\);) p n
+(          ) S
+(return) K
+( 1;) p n
+(        }) N
+(      }) N
+(      ) S
+(else) K
+({) p n
+(        ) S
+(int) k
+( result = chdir\(args[1]\);) p n
+(        ) S
+(if) K
+(\(result < 0\){) p n
+(          dprintf\(newErr,") S
+(chdir\\n) str
+("\);) p n
+(          ) S
+(return) K
+( 1;) p n
+(        }) N
+(      }) N
+(      ) S
+(break) K
+(;) p n
+(    ) S
+(case) K
+( ') p
+(s) str
+(':) p n
+(      ) S
+(/* shifts by 1 if no amount is specified, else shifts by specified amount ) c n
+(*/) N
+(      ) p
+(if) K
+(\(strcmp\(builtIns[5], args[0]\) == 0\){) p n
+(        ) S
+(if) K
+(\(argcp == 1\){) p n
+(          ) S
+(if) K
+(\(1 < \(myArgc -shiftAmt\)\){) p n
+(            shiftAmt ++;) N
+(          }) N
+(          ) S
+(else) K
+({) p n
+(            dprintf\(newErr, ") S
+(The shift amount was greater than the number of arguments\\n) str
+("\);) p n
+(            ) S
+(return) K
+( 1;) p n
+(builtin.c) (Page 2/4) (May 31, 17 12:01) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(builtin.c) (3/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (3-4) 4
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(          }) p n
+(        }) N
+(        ) S
+(/* won't let you shift past end of string */) c n
+(        ) p
+(else) K
+( ) p
+(if) K
+(\(argcp > 1\){) p n
+(          ) S
+(if) K
+(\(atoi\(args[1]\) < \(myArgc - shiftAmt\)\){) p n
+(            shiftAmt += atoi\(args[1]\);) N
+(          }) N
+(          ) S
+(else) K
+({) p n
+(            dprintf\(newErr, ") S
+(The shift amount was greater than the number of arguments\\n) str
+("\);) p n
+(            ) S
+(return) K
+( 1;) p n
+(          }) N
+(        }) N
+(      ) S
+(break) K
+(;) p n
+(    }) N
+(    ) S
+(else) K
+({) p n
+(      ) S
+(/* format sstat string that gets printed */) c n
+(      ) p
+(struct) k
+( stat statRes;) p n
+(      ) S
+(struct) k
+( passwd *userName;) p n
+(      ) S
+(struct) k
+( group *groupName;) p n
+(      ) S
+(char) k
+( *permis;) p n
+(      ) S
+(char) k
+( *modTime;) p n
+(      ) S
+(struct) k
+( tm *currTime;) p n
+(      ) S
+(int) k
+( ix = 1;) p n
+(      ) S
+(while) K
+(\(ix < argcp\){) p n
+(        ) S
+(int) k
+( val = stat\(args[ix], &statRes\);) p n
+(        ) S
+(if) K
+(\(val < 0\){) p n
+(          dprintf\(newErr,") S
+(stat\\n) str
+("\);) p n
+(          ) S
+(return) K
+( 1;) p n
+(        }) N
+(        userName = getpwuid\(statRes.st_uid\);) N
+(        groupName = getgrgid\(statRes.st_gid\);) N
+(        currTime = localtime\(&statRes.st_mtime\);) N
+(        modTime = asctime\(currTime\);) N
+(        permis = \() S
+(char) k
+( *\) malloc\() p
+(sizeof) K
+(\() p
+(char) k
+(\) * 12\);) p n
+(        ) S
+(if) K
+(\(permis < 0\){) p n
+(          dprintf\(newErr,") S
+(malloc\\n) str
+("\);) p n
+(          ) S
+(return) K
+( 1;) p n
+(        }) N
+(        strmode\(statRes.st_mode, permis\);) N
+(        ) S
+(/* tests if user and group are null */) c n
+(        ) p
+(if) K
+(\(userName == ) p
+(NULL) K
+(\){) p n
+(          ) S
+(if) K
+(\(groupName == ) p
+(NULL) K
+(\){) p n
+(            dprintf\(outfd,") S
+(%s %d %d %s%d %ld %s) str
+(",args[ix], statRes.st_uid, statRes) p n
+(.st_gid, permis, \() S
+(int) k
+(\)statRes.st_nlink, statRes.st_size, modTime\);) p n
+(          }) N
+(          ) S
+(/* just the user is null */) c n
+(          ) p
+(else) K
+({) p n
+(            dprintf\(outfd,") S
+(%s %d %s %s%d %ld %s) str
+(",args[ix], statRes.st_uid, groupNa) p n
+(me->gr_name, permis, \() S
+(int) k
+(\)statRes.st_nlink, statRes.st_size, modTime\);) p n
+(          }) N
+(        }) N
+(        ) S
+(/* just the group is null */) c n
+(        ) p
+(else) K
+( ) p
+(if) K
+(\(groupName == ) p
+(NULL) K
+(\){) p n
+(          dprintf\(outfd,") S
+(%s %s %d %s%d %ld %s) str
+(",args[ix], userName->pw_name, statRe) p n
+(s.st_gid, permis, \() S
+(int) k
+(\)statRes.st_nlink, statRes.st_size, modTime\);) p n
+(        }) N
+(        ) S
+(else) K
+({) p n
+(          dprintf\(outfd,") S
+(%s %s %s %s%d %ld %s) str
+(",args[ix], userName->pw_name, groupN) p n
+(ame->gr_name, permis, \() S
+(int) k
+(\)statRes.st_nlink, statRes.st_size, modTime\);) p n
+(        }) N
+(        ix ++;) N
+(      }) N
+(    }) N
+(    ) S
+(/* read builtin that reads from stdin the value of the environment variable) c n
+(     * pointed to by arg[1].) N
+(     */) N
+(    ) p
+(case) K
+( ') p
+(r) str
+(':) p n
+(      ) S
+(if) K
+(\(strcmp\(args[0],builtIns[8]\) == 0\){) p n
+(        ) S
+(if) K
+(\(args[1] == ') p
+(\\0) str
+('\){) p n
+(builtin.c) (Page 3/4) (May 31, 17 12:01) title
+border
+/v 1 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(          dprintf\(newErr, ") p
+(Please provide an environment variable name to populate\\n) str
+("\);) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(        ) S
+(char) k
+( envVar[LINELEN];) p n
+(        errno = 0;) N
+(        ) S
+(int) k
+( tmpIx = 0;) p n
+(        ) S
+(while) K
+(\(read\(infd ,&envVar[tmpIx], 1\) > 0 && envVar[tmpIx] != ') p
+(\\n) str
+('\){) p n
+(            tmpIx ++;) N
+(        }) N
+(        ) S
+(if) K
+(\(errno != 0\){) p n
+(          dprintf\(newErr,") S
+(read\\n) str
+("\);) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(        ) S
+(int) k
+( howMuch = strlen\(envVar\);) p n
+(        envVar[howMuch - 1] = ') S
+(\\0) str
+(';) p n
+(        ) S
+(int) k
+( result = setenv\(args[1], envVar , 1\);) p n
+(        ) S
+(if) K
+(\(result < 0\){) p n
+(          dprintf\(newErr,") S
+(setenv\\n) str
+("\);) p n
+(          ) S
+(return) K
+( 1;) p n
+(        }) N
+(        ) S
+(break) K
+(;) p n
+(      }) N
+(    ) S
+(/* Unshift the arguments by the specified number */) c n
+(    ) p
+(case) K
+( ') p
+(u) str
+(':) p n
+(      ) S
+(if) K
+(\(argcp == 1\){) p n
+(        shiftAmt = 1;) N
+(      }) N
+(      ) S
+(else) K
+( ) p
+(if) K
+(\(argcp > 1\){) p n
+(        ) S
+(if) K
+(\(atoi\(args[1]\) < shiftAmt\){) p n
+(          shiftAmt -= atoi\(args[1]\);) N
+(        }) N
+(        ) S
+(else) K
+({) p n
+(          dprintf\(newErr, ") S
+(The unshift amount was greater than the number of shifted arguments\\n) str
+("\);) p n
+(          ) S
+(return) K
+( 1;) p n
+(        }) N
+(      }) N
+(      ) S
+(break) K
+(;) p n
+(  }) N
+(  ) S
+(if) K
+(\(infd != 0\){) p n
+(    close\(infd\);) N
+(  }) N
+(  ) S
+(return) K
+( 0;) p n
+(}) N
+(builtin.c) (Page 4/4) (May 31, 17 12:01) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(builtin.c) (4/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (1-2) 5
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(/*    $Id: expand.c,v 1.52 2017/05/27 21:35:09 tanism3 Exp $    */) c n
+() p n
+() N
+(/* Author: Marshall Tanis) c n
+( * CS 352) N
+( * Minishell */) N
+() p n
+( #include <stdlib.h>) N
+( #include <stdio.h>) N
+( #include <string.h>) N
+( #include <unistd.h>) N
+( #include <ctype.h>) N
+( #include <dirent.h>) N
+( #include <errno.h>) N
+( #include <sys/wait.h>) N
+( #include ") S
+(proto.h) str
+(") p n
+() N
+(static) K
+( ) p
+(int) k
+( replace\() p
+(int) k
+( ix, ) p
+(char) k
+( *replacement, ) p
+(int) k
+( maxSize, ) p
+(char) k
+( *new\);) p n
+(static) K
+( ) p
+(char) k
+( *digExp\() p
+(char) k
+( *orig, ) p
+(int) k
+( ix\);) p n
+(static) K
+( ) p
+(char) k
+( *envExp\() p
+(int) k
+( ix, ) p
+(char) k
+( *orig, ) p
+(int) k
+( *ixOld\);) p n
+(static) K
+( ) p
+(char) k
+( *pidExp\(\);) p n
+(static) K
+( ) p
+(char) k
+( *exitVal\(\);) p n
+(static) K
+( ) p
+(int) k
+( simpleStar\() p
+(int) k
+( ixNew, ) p
+(char) k
+( *new, ) p
+(int) k
+( newsize\);) p n
+(static) K
+( ) p
+(char) k
+( *getContext\() p
+(char) k
+( *orig, ) p
+(int) k
+( ix\);) p n
+(static) K
+( ) p
+(int) k
+( complexStar\() p
+(char) k
+( *context, ) p
+(int) k
+( ixNew, ) p
+(char) k
+( *new, ) p
+(int) k
+( newsize\);) p n
+(static) K
+( ) p
+(char) k
+( *expressionExp\() p
+(char) k
+( *orig, ) p
+(int) k
+( ix, ) p
+(int) k
+( *ixOld\);) p n
+(static) K
+( ) p
+(int) k
+( addPipe\() p
+(char) k
+( *command, ) p
+(char) k
+( *newLine, ) p
+(int) k
+( *ixNew, ) p
+(int) k
+( max\);) p n
+() N
+(int) k
+( expand\() p
+(char) k
+( *orig, ) p
+(char) k
+( *new, ) p
+(int) k
+( newsize\){) p n
+(  ) S
+(int) k
+( ixOld = 0;) p n
+(  ) S
+(int) k
+( ixNew = 0;) p n
+(  ) S
+(/* goes char by char */) c n
+(  ) p
+(while) K
+(\(orig[ixOld] != ') p
+(\\0) str
+(' && !sigHappened\){) p n
+(    ) S
+(/* if it's a $ expansion */) c n
+(    ) p
+(if) K
+(\(orig[ixOld] == ') p
+($) str
+('\){) p n
+(      ) S
+(if) K
+(\(orig[ixOld + 1] == ') p
+({) str
+('\){) p n
+(        ) S
+(// do environment expansion) c n
+(        ) p
+(char) k
+( *env = envExp\(ixOld + 2, orig, &ixOld\);) p n
+(        ) S
+(if) K
+(\(env == ) p
+(NULL) K
+(\){) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(        ixNew = replace\(ixNew, env, newsize, new\);) N
+(        ) S
+(if) K
+(\(ixNew < 0\){) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(      }) N
+(      ) S
+(else) K
+( ) p
+(if) K
+(\(orig[ixOld + 1] == ') p
+($) str
+('\){) p n
+(        ) S
+(// do pid expansion) c n
+(        ) p
+(char) k
+( *ppid = pidExp\(\);) p n
+(        ) S
+(if) K
+(\(ppid == ) p
+(NULL) K
+(\){) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(        ixNew = replace\(ixNew, ppid, newsize, new\);) N
+(        ) S
+(if) K
+(\(ixNew < 0\){) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(        ixOld = ixOld + 2;) N
+(      }) N
+(      ) S
+(else) K
+( ) p
+(if) K
+(\(isdigit\(orig[ixOld + 1]\)\){) p n
+(        ) S
+(char) k
+( *expand = digExp\(orig, ixOld + 1\);) p n
+(        ) S
+(if) K
+(\(expand == ) p
+(NULL) K
+(\){) p n
+(          ixOld ++;) N
+(          ) S
+(while) K
+(\(isdigit\(orig[ixOld]\) && orig[ixOld] != ') p
+(\\0) str
+('\){) p n
+(            ixOld ++;) N
+(          }) N
+(        }) N
+(        ) S
+(else) K
+( ) p
+(if) K
+(\(strcmp\(expand, ") p
+(error) str
+("\)==0\){) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(expand.c) (Page 1/8) (May 29, 17 15:48) title
+border
+/v 1 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(        ) p
+(else) K
+({) p n
+(          ixNew = replace\(ixNew, expand, newsize, new\);) N
+(          ) S
+(if) K
+(\(ixNew < 0\){) p n
+(            ) S
+(return) K
+( -1;) p n
+(          }) N
+(          free\(expand\);) N
+(          ixOld ++;) N
+(          ) S
+(while) K
+(\(isdigit\(orig[ixOld]\) && orig[ixOld] != ') p
+(\\0) str
+('\){) p n
+(            ixOld ++;) N
+(          }) N
+(        }) N
+(      }) N
+(      ) S
+(else) K
+( ) p
+(if) K
+(\(orig[ixOld + 1] == ') p
+(#) str
+('\){) p n
+(        ) S
+(char) k
+( num[4];) p n
+(        ) S
+(int) k
+( argNum = myArgc - shiftAmt;) p n
+(        ) S
+(if) K
+(\(argNum < 1\){) p n
+(          argNum = 1;) N
+(        }) N
+(        ) S
+(int) k
+( res = snprintf\(num, ) p
+(sizeof) K
+(\() p
+(int) k
+(\) * 4, ") p
+(%d) str
+(", argNum\);) p n
+(        ) S
+(if) K
+(\(res < 0\){) p n
+(          perror\(") S
+(snprintf) str
+("\);) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(        ixNew = replace\(ixNew, num, newsize, new\);) N
+(        ) S
+(if) K
+(\(ixNew < 0\){) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(        ixOld += 2;) N
+(      }) N
+(      ) S
+(else) K
+( ) p
+(if) K
+(\(orig[ixOld + 1] == ') p
+(?) str
+('\){) p n
+(        ) S
+(char) k
+( *expand = exitVal\(\);) p n
+(        ) S
+(if) K
+(\(expand == ) p
+(NULL) K
+(\){) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(        ixNew = replace\(ixNew, expand, newsize, new\);) N
+(        ) S
+(if) K
+(\(ixNew < 0\){) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(        ixOld += 2;) N
+(      }) N
+(      ) S
+(else) K
+( ) p
+(if) K
+(\(orig[ixOld + 1] == ') p
+(\() str
+('\){) p n
+(        ) S
+(char) k
+( *expansion = expressionExp\(orig, ixOld + 2, &ixOld\);) p n
+(        ) S
+(if) K
+(\(expansion == ) p
+(NULL) K
+(\){) p n
+(          ) S
+(return) K
+( - 1;) p n
+(        }) N
+(        ) S
+(int) k
+( worked = addPipe\(expansion, new, &ixNew, newsize\);) p n
+(        ) S
+(if) K
+(\(worked < 0\){) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(      }) N
+(      ) S
+(else) K
+({) p n
+(        new[ixNew] = orig[ixOld];) N
+(        ixOld ++;) N
+(        ixNew ++;) N
+(      }) N
+(    }) N
+(    ) S
+(/* else it's a * expansion */) c n
+(    ) p
+(else) K
+( ) p
+(if) K
+(\(orig[ixOld] == ') p
+(*) str
+('\){) p n
+(      ) S
+(if) K
+(\(\(orig[ixOld + 1] == ') p
+( ) str
+(' || \(orig[ixOld + 1] == ') p
+(\\0) str
+('\)\) && \(\(orig[ixOld - ) p n
+(1] == ') S
+( ) str
+('\) || \(orig[ixOld - 1] == ') p
+(") str
+('\)\)\){) p n
+(        ixNew = simpleStar\(ixNew, new, newsize\);) N
+(        ) S
+(if) K
+(\(ixNew < 0\){) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(        ixOld += 2;) N
+(      }) N
+(      ) S
+(else) K
+( ) p
+(if) K
+(\(orig[ixOld - 1] == ') p
+(\\\\) str
+('\){) p n
+(        new[ixNew - 1] = orig[ixOld];) N
+(        ixOld += 1;) N
+(expand.c) (Page 2/8) (May 29, 17 15:48) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(expand.c) (5/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (3-4) 6
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(      }) p n
+(      ) S
+(else) K
+( ) p
+(if) K
+(\(orig[ixOld + 1] != ') p
+(\\0) str
+(' && orig[ixOld + 1] != ') p
+( ) str
+('\){) p n
+(        ) S
+(char) k
+( *context = getContext\(orig, ixOld\);) p n
+(        ) S
+(if) K
+(\(context == ) p
+(NULL) K
+(\){) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(        ixOld += \(strlen\(context\) + 1\);) N
+(        ixNew = complexStar\(context, ixNew, new, newsize\);) N
+(        ) S
+(if) K
+(\(ixNew < 0\){) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(      }) N
+(      ) S
+(else) K
+({) p n
+(        new[ixNew] = orig[ixOld];) N
+(        ixNew ++;) N
+(        ixOld ++;) N
+(      }) N
+(    }) N
+(    ) S
+(/* else its just normal copy */) c n
+(    ) p
+(else) K
+({) p n
+(      new[ixNew] = orig[ixOld];) N
+(      ixOld ++;) N
+(      ixNew ++;) N
+(    }) N
+(  }) N
+(  ) S
+(if) K
+(\(sigHappened\){) p n
+(    ) S
+(return) K
+( -1;) p n
+(  }) N
+(  new[strlen\(new\)] = ') S
+(\\0) str
+(';) p n
+(  ) S
+(return) K
+( 0;) p n
+(}) N
+() N
+(/* perform piping using command and place output into *newLine */) c n
+(static) K
+( ) p
+(int) k
+( addPipe\() p
+(char) k
+( *command, ) p
+(char) k
+( *newLine, ) p
+(int) k
+( *ixNew, ) p
+(int) k
+( max\){) p n
+(  ) S
+(int) k
+( fd[2];) p n
+(  ) S
+(int) k
+( status;) p n
+(  pipe\(fd\);) N
+(  ) S
+(/* actually runs command */) c n
+(  ) p
+(int) k
+( cpid = processline\(command, 0, fd[1], DONTWAIT | EXPAND\);) p n
+(  ) S
+(/* sets global id of child */) c n
+(  myChild = cpid;) p n
+(  close\(fd[1]\);) N
+(  ) S
+(int) k
+( val = 0;) p n
+(  ) S
+(while) K
+(\(\(val = read\(fd[0], &newLine[*ixNew], 1\)\) > 0 && *ixNew < LINELEN\){) p n
+(    ) S
+(if) K
+(\(val < 0\){) p n
+(      perror\(") S
+(read) str
+("\);) p n
+(      ) S
+(return) K
+( -1;) p n
+(    }) N
+(    *ixNew += val;) N
+(    ) S
+(if) K
+(\(newLine[*ixNew - 1] == ') p
+(\\n) str
+('\){) p n
+(      newLine[*ixNew - 1] = ') S
+( ) str
+(';) p n
+(    }) N
+(  }) N
+(  ) S
+(/* if buffer is overflowed, print error and kill child */) c n
+(  ) p
+(if) K
+(\(*ixNew >= LINELEN\){) p n
+(    dprintf\(2, ") S
+(You overflowed the buffer!\\n) str
+("\);) p n
+(    kill\(myChild, SIGKILL\);) N
+(  }) N
+(  ) S
+(/* close pipe */) c n
+(  close\(fd[0]\);) p n
+(  ) S
+(/* wait on child */) c n
+(  ) p
+(if) K
+(\(myChild > 0\){) p n
+(    ) S
+(if) K
+(\(waitpid\(myChild, &status, 0\) < 0\){) p n
+(      perror\(") S
+(wait) str
+("\);) p n
+(      ) S
+(return) K
+( -1;) p n
+(    }) N
+(    ) S
+(/* tests to see if the program exited normally */) c n
+(    ) p
+(if) K
+(\(WIFEXITED\(status\)\){) p n
+(      ) S
+(/* gets the exit value for the last normal exit */) c n
+(expand.c) (Page 3/8) (May 29, 17 15:48) title
+border
+/v 1 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(      exVal = WEXITSTATUS\(status\);) p n
+(    }) N
+(    ) S
+(/* code is interupted, sets exit to abnormal val */) c n
+(    ) p
+(else) K
+({) p n
+(      exVal = 127;) N
+(    }) N
+(  }) N
+(  ) S
+(/* if the buffer was overflowed, return error */) c n
+(  ) p
+(if) K
+(\(*ixNew >= LINELEN\){) p n
+(    ) S
+(return) K
+( -1;) p n
+(  }) N
+(  ) S
+(/* else remove extra last character */) c n
+(  ) p
+(if) K
+(\(newLine[*ixNew - 1] == ') p
+( ) str
+('\){) p n
+(    *ixNew = *ixNew - 1;) N
+(  }) N
+() N
+(  ) S
+(return) K
+( 0;) p n
+(}) N
+() N
+(/* expand expressions */) c n
+(static) K
+( ) p
+(char) k
+( *expressionExp\() p
+(char) k
+( *orig, ) p
+(int) k
+( ix, ) p
+(int) k
+( *ixOld\){) p n
+(  ) S
+(int) k
+( count = 1;) p n
+(  ) S
+(int) k
+( howLong = 0;) p n
+(  ) S
+(int) k
+( tmpIx = ix;) p n
+(  ) S
+(char) k
+( *expression;) p n
+(  ) S
+(char) k
+( saved;) p n
+(  ) S
+(/* looks for matching end parenthesis */) c n
+(  ) p
+(while) K
+(\(orig[tmpIx] != ') p
+(\\0) str
+(' && count > 0\){) p n
+(    ) S
+(if) K
+(\(orig[tmpIx] == ') p
+(\() str
+('\){) p n
+(      count ++;) N
+(    }) N
+(    ) S
+(else) K
+( ) p
+(if) K
+(\(orig[tmpIx] == ') p
+(\)) str
+('\){) p n
+(      count --;) N
+(      ) S
+(if) K
+(\(count == 0\){) p n
+(        saved = orig[tmpIx];) N
+(        orig[tmpIx] = ') S
+(\\0) str
+(';) p n
+(        ) S
+(break) K
+(;) p n
+(      }) N
+(    }) N
+(    tmpIx ++;) N
+(    howLong ++;) N
+(  }) N
+(  ) S
+(if) K
+(\(count != 0 && orig[tmpIx] == ') p
+(\\0) str
+('\){) p n
+(    dprintf\(2, ") S
+(Could not expand $\(\), missing closing parenthesis\\n) str
+("\);) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  ) S
+(/* change the value of ixOld to the end parenthesis */) c n
+(  *ixOld = tmpIx + 1;) p n
+(  expression = \() S
+(char) k
+( *\) malloc \() p
+(sizeof) K
+(\() p
+(char) k
+(\) * howLong + 1\);) p n
+(  ) S
+(if) K
+(\(expression < 0\){) p n
+(    perror\(") S
+(malloc) str
+("\);) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  ) S
+(/* print the command to expression variable */) c n
+(  ) p
+(int) k
+( worked = snprintf\(expression, \() p
+(sizeof) K
+(\() p
+(char) k
+(\) * howLong + 1\), ") p
+(%s) str
+(", &orig[i) p n
+(x]\);) N
+(  expression[howLong + 1] = ') S
+(\\0) str
+(';) p n
+(  orig[tmpIx] = saved;) N
+(  ) S
+(if) K
+(\(worked < 0\){) p n
+(    perror\(") S
+(snprintf) str
+("\);) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  ) S
+(return) K
+( expression;) p n
+(}) N
+() N
+(/* gets the context for the * with trailing char expansion */) c n
+(static) K
+( ) p
+(char) k
+( *getContext\() p
+(char) k
+( *orig, ) p
+(int) k
+( ix\){) p n
+(  ) S
+(char) k
+( *context;) p n
+(  ) S
+(int) k
+( counter = 0;) p n
+(expand.c) (Page 4/8) (May 29, 17 15:48) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(expand.c) (6/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (5-6) 7
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(  ) p
+(int) k
+( tmpIx = ix + 1;) p n
+(  ) S
+(while) K
+(\(orig[tmpIx] != ') p
+( ) str
+(' && orig[tmpIx] != ') p
+(\\0) str
+(' && orig[tmpIx] != ') p
+(") str
+('\){) p n
+(    ) S
+(if) K
+(\(orig[tmpIx] == ') p
+(/) str
+('\){) p n
+(      ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(    }) N
+(    tmpIx ++;) N
+(    counter ++;) N
+(  }) N
+(  ) S
+(char) k
+( saved = orig[tmpIx];) p n
+(  orig[tmpIx] = ') S
+(\\0) str
+(';) p n
+(  context = \() S
+(char) k
+( *\)malloc\() p
+(sizeof) K
+(\() p
+(char) k
+(\) * \(counter + 1\)\);) p n
+(  ) S
+(if) K
+(\(context < 0\){) p n
+(    perror\(") S
+(malloc) str
+("\);) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  ) S
+(int) k
+( val = snprintf\(context,\() p
+(sizeof) K
+(\() p
+(char) k
+(\) * counter + 1\), ") p
+(%s) str
+(", &orig[ix + 1]\)) p n
+(;) N
+(  ) S
+(if) K
+(\(val < 0\){) p n
+(    perror\(") S
+(snprintf) str
+("\);) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  orig[tmpIx] = saved;) N
+(  context[counter + 1] = ') S
+(\\0) str
+(';) p n
+(  ) S
+(return) K
+( context;) p n
+(}) N
+(/* calculates and replaces the file names that match with the previously found c) c n
+(ontext */) N
+(static) K
+( ) p
+(int) k
+( complexStar\() p
+(char) k
+( *context, ) p
+(int) k
+( ixNew, ) p
+(char) k
+( *new, ) p
+(int) k
+( newsize\){) p n
+(  ) S
+(char) k
+( *cwd = getcwd\() p
+(NULL) K
+(, 0\);) p n
+(  DIR *currDir = opendir\(cwd\);) N
+(  ) S
+(if) K
+(\(currDir == ) p
+(NULL) K
+(\){) p n
+(    perror\(") S
+(opendir) str
+("\);) p n
+(    ) S
+(return) K
+( -1;) p n
+(  }) N
+(  free\(cwd\);) N
+(  ) S
+(struct) k
+( dirent *currFile;) p n
+(  errno = 0;) N
+(  ) S
+(int) k
+( counter = 0;) p n
+(  ) S
+(while) K
+(\(\(currFile = readdir\(currDir\)\) != ) p
+(NULL) K
+(\){) p n
+(    ) S
+(if) K
+(\(currFile->d_name[0] != ') p
+(.) str
+('\){) p n
+(      ) S
+(int) k
+( nameLen = strlen\(currFile->d_name\);) p n
+(      ) S
+(if) K
+(\(strcmp\(context, &\(currFile->d_name[nameLen - \(strlen\(context\)\)]\)\) == 0\)) p n
+({) N
+(        ixNew = replace\(ixNew, currFile->d_name, newsize, new\);) N
+(        new[ixNew] = ') S
+( ) str
+(';) p n
+(        ixNew ++;) N
+(        counter ++;) N
+(      }) N
+(    }) N
+(  }) N
+(  ) S
+(if) K
+(\(counter == 1\){) p n
+(    ixNew --;) N
+(  }) N
+(  ) S
+(else) K
+( ) p
+(if) K
+(\(counter == 0\){) p n
+(    ixNew = replace\(ixNew, ") S
+(*) str
+(", newsize, new\);) p n
+(    ixNew = replace\(ixNew, context, newsize,new\);) N
+(  }) N
+(  ) S
+(if) K
+(\(currFile == ) p
+(NULL) K
+( && errno != 0\){) p n
+(    perror\(") S
+(readdir) str
+("\);) p n
+(    ) S
+(return) K
+( -1;) p n
+(  }) N
+(  ) S
+(int) k
+( val = closedir\(currDir\);) p n
+(  ) S
+(if) K
+(\(val < 0\){) p n
+(    perror\(") S
+(closedir) str
+("\);) p n
+(    ) S
+(return) K
+( -1;) p n
+(  }) N
+(  ) S
+(return) K
+( ixNew;) p n
+(}) N
+(/* calculates and replaces all the file names in the current working directory *) c n
+(expand.c) (Page 5/8) (May 29, 17 15:48) title
+border
+/v 1 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(/) c n
+(static) K
+( ) p
+(int) k
+( simpleStar\() p
+(int) k
+( ixNew, ) p
+(char) k
+( *new, ) p
+(int) k
+( newsize\){) p n
+(  ) S
+(char) k
+( *cwd = getcwd\() p
+(NULL) K
+(, 0\);) p n
+(  DIR *currDir = opendir\(cwd\);) N
+(  ) S
+(if) K
+(\(currDir == ) p
+(NULL) K
+(\){) p n
+(    perror\(") S
+(opendir) str
+("\);) p n
+(    ) S
+(return) K
+( -1;) p n
+(  }) N
+(  free\(cwd\);) N
+(  ) S
+(struct) k
+( dirent *currFile;) p n
+(  errno = 0;) N
+(  ) S
+(while) K
+(\(\(currFile = readdir\(currDir\)\)!= ') p
+(\\0) str
+('\){) p n
+(    ) S
+(if) K
+(\(currFile->d_name[0] != ') p
+(.) str
+('\){) p n
+(      ixNew = replace\(ixNew, currFile->d_name, newsize, new\);) N
+(      new[ixNew] = ') S
+( ) str
+(';) p n
+(      ixNew ++;) N
+(    }) N
+(  }) N
+(  ) S
+(if) K
+(\(currFile == ) p
+(NULL) K
+( && errno != 0\){) p n
+(    perror\(") S
+(readdir) str
+("\);) p n
+(    ) S
+(return) K
+( -1;) p n
+(  }) N
+(  ) S
+(int) k
+( val = closedir\(currDir\);) p n
+(  ) S
+(if) K
+(\(val < 0\){) p n
+(    perror\(") S
+(closedir) str
+("\);) p n
+(    ) S
+(return) K
+( -1;) p n
+(  }) N
+(  ) S
+(return) K
+( ixNew;) p n
+(}) N
+(/* expands the exitValue in the new string based on the global var */) c n
+(static) K
+( ) p
+(char) k
+( *exitVal\(\){) p n
+(  ) S
+(char) k
+( *expansion;) p n
+(  expansion = \() S
+(char) k
+( *\) malloc\() p
+(sizeof) K
+(\() p
+(char) k
+(\) * 4\);) p n
+(  ) S
+(if) K
+(\(expansion < 0\){) p n
+(    perror\(") S
+(malloc) str
+("\);) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  ) S
+(int) k
+( result = snprintf\(expansion, ) p
+(sizeof) K
+(\() p
+(char) k
+(\) * 4, ") p
+(%d) str
+(", exVal\);) p n
+(  ) S
+(if) K
+(\(result < 0\){) p n
+(    perror\(") S
+(snprintf) str
+("\);) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  ) S
+(int) k
+( len = strlen\(expansion\);) p n
+(  expansion[len] = ') S
+(\\0) str
+(';) p n
+(  ) S
+(return) K
+( expansion;) p n
+(}) N
+(/* expands the $ digit expansion by calculating the shift amt and adding to it *) c n
+(/) N
+(static) K
+( ) p
+(char) k
+( *digExp\() p
+(char) k
+( *orig, ) p
+(int) k
+( ix\){) p n
+(  ) S
+(char) k
+( *expansion;) p n
+(  ) S
+(int) k
+( tmpIX = ix;) p n
+(  ) S
+(while) K
+(\(orig[tmpIX] != ') p
+( ) str
+(' && orig[tmpIX] != ') p
+(\\0) str
+('\){) p n
+(    tmpIX ++;) N
+(  }) N
+(  ) S
+(char) k
+( saved = orig[tmpIX];) p n
+(  orig[tmpIX] = ') S
+(\\0) str
+(';) p n
+(  ) S
+(char) k
+( num[5];) p n
+(  ) S
+(int) k
+( worked = snprintf\(num,\() p
+(sizeof) K
+(\() p
+(int) k
+(\) * 5\), ") p
+(%s) str
+(", &orig[ix]\);) p n
+(  ) S
+(if) K
+(\(worked < 0\){) p n
+(    perror\(") S
+(snprintf) str
+("\);) p n
+(    ) S
+(return) K
+( ") p
+(error) str
+(";) p n
+(  }) N
+(  orig[tmpIX] = saved;) N
+(  ) S
+(int) k
+( arg = atoi\(num\) + shiftAmt;) p n
+(  ) S
+(if) K
+(\(myArgc == 1 && \(atoi\(num\) < myArgc\)\){) p n
+(    ) S
+(int) k
+( argLen = strlen\(myArgv[0]\);) p n
+(    expansion = \() S
+(char) k
+( *\)malloc\() p
+(sizeof) K
+(\() p
+(char) k
+(\) * \(argLen + 1\)\);) p n
+(    ) S
+(if) K
+(\(expansion < 0\){) p n
+(      perror\(") S
+(malloc) str
+("\);) p n
+(expand.c) (Page 6/8) (May 29, 17 15:48) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(expand.c) (7/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (7-8) 8
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(    }) p n
+(    worked = snprintf\(expansion,argLen + 1, ") S
+(%s) str
+(", myArgv[0]\);) p n
+(    ) S
+(if) K
+(\(worked < 0\){) p n
+(      perror\(") S
+(snprintf) str
+("\);) p n
+(      ) S
+(return) K
+( ") p
+(error) str
+(";) p n
+(    }) N
+(  }) N
+(  ) S
+(else) K
+( ) p
+(if) K
+(\(arg >= myArgc\){) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  ) S
+(else) K
+({) p n
+(    ) S
+(int) k
+( argLen;) p n
+(    ) S
+(if) K
+(\(atoi\(num\)==0\){) p n
+(      argLen = strlen\(myArgv[1]\);) N
+(    }) N
+(    ) S
+(else) K
+({) p n
+(      argLen = strlen\(myArgv[arg]\);) N
+(    }) N
+(    expansion = \() S
+(char) k
+( *\)malloc\() p
+(sizeof) K
+(\() p
+(char) k
+(\) * \(argLen + 1\)\);) p n
+(    ) S
+(if) K
+(\(expansion < 0\){) p n
+(      perror\(") S
+(malloc) str
+("\);) p n
+(    }) N
+(    ) S
+(if) K
+(\(atoi\(num\) == 0\){) p n
+(      worked = snprintf\(expansion,argLen + 1, ") S
+(%s) str
+(", myArgv[1]\);) p n
+(    }) N
+(    ) S
+(else) K
+({) p n
+(      worked = snprintf\(expansion,argLen + 1, ") S
+(%s) str
+(", myArgv[arg]\);) p n
+(    }) N
+(    ) S
+(if) K
+(\(worked < 0\){) p n
+(      perror\(") S
+(snprintf) str
+("\);) p n
+(      ) S
+(return) K
+( ") p
+(error) str
+(";) p n
+(    }) N
+(  }) N
+(  ) S
+(int) k
+( len = strlen\(expansion\);) p n
+(  expansion[len] = ') S
+(\\0) str
+(';) p n
+(  ) S
+(return) K
+( expansion;) p n
+(}) N
+(/* expands $$ to be the current pid */) c n
+(static) K
+( ) p
+(char) k
+( *pidExp\(\){) p n
+(  ) S
+(char) k
+( *expansion;) p n
+(  ) S
+(int) k
+( count = 0;) p n
+(  ) S
+(int) k
+( pid = getpid\(\);) p n
+(  ) S
+(int) k
+( size = 1;) p n
+(  ) S
+(while) K
+(\(pid % size != pid\){) p n
+(    count ++;) N
+(    size *= 10;) N
+(  }) N
+(  expansion = \() S
+(char) k
+( *\)malloc \() p
+(sizeof) K
+(\() p
+(char) k
+(\) * count + 1\);) p n
+(  ) S
+(if) K
+(\(expansion < 0\){) p n
+(    perror\(") S
+(malloc) str
+("\);) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  ) S
+(int) k
+( tmp = count;) p n
+(  ) S
+(while) K
+(\(count > 0\){) p n
+(    count --;) N
+(    expansion[count] = \(pid % 10\) + ') S
+(0) str
+(';) p n
+(    pid /= 10;) N
+(  }) N
+(  expansion[tmp] = ') S
+(\\0) str
+(';) p n
+(  ) S
+(return) K
+( expansion;) p n
+(}) N
+(/* expands environment variables */) c n
+(static) K
+( ) p
+(char) k
+( *envExp\() p
+(int) k
+( ix, ) p
+(char) k
+( *orig, ) p
+(int) k
+( *ixOld\){) p n
+(  ) S
+(char) k
+( *envName;) p n
+(  ) S
+(char) k
+( *expansion;) p n
+(  ) S
+(int) k
+( count = 0;) p n
+(  ) S
+(int) k
+( tmpIX = ix;) p n
+(  ) S
+(while) K
+(\(orig[tmpIX] != ') p
+(}) str
+(' && orig[tmpIX] != ') p
+(\\0) str
+('\){) p n
+(    count ++;) N
+(expand.c) (Page 7/8) (May 29, 17 15:48) title
+border
+/v 1 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(    tmpIX ++;) p n
+(  }) N
+(  *ixOld = tmpIX + 1;) N
+(  ) S
+(if) K
+(\(orig[tmpIX] == ') p
+(\\0) str
+('\){) p n
+(    dprintf\(2, ") S
+(There is a missing bracket\\n) str
+("\);) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  envName = \() S
+(char) k
+( *\)malloc\() p
+(sizeof) K
+(\() p
+(char) k
+(\) * count + 1\);) p n
+(  ) S
+(if) K
+(\(envName < 0\){) p n
+(    perror\(") S
+(malloc) str
+("\);) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  ) S
+(int) k
+( i = 0;) p n
+(  tmpIX = ix;) N
+(  ) S
+(while) K
+(\(orig[tmpIX] != ') p
+(}) str
+('\){) p n
+(    envName[i] = orig[tmpIX];) N
+(    i ++;) N
+(    tmpIX ++;) N
+(  }) N
+(  envName[i] = ') S
+(\\0) str
+(';) p n
+(  expansion = getenv\(envName\);) N
+(  free\(envName\);) N
+(  ) S
+(if) K
+(\(expansion == ) p
+(NULL) K
+(\){) p n
+(    expansion="";) N
+(  }) N
+(  ) S
+(return) K
+( expansion;) p n
+(}) N
+(/* replaces the string at the given index with replacement string and updates th) c n
+(e new index pointer */) N
+(static) K
+( ) p
+(int) k
+( replace\() p
+(int) k
+( ix, ) p
+(char) k
+( *replacement, ) p
+(int) k
+( maxSize, ) p
+(char) k
+( *new\){) p n
+(  ) S
+(int) k
+( i = 0;) p n
+(  ) S
+(while) K
+(\(ix < maxSize && replacement[i] != ') p
+(\\0) str
+('\){) p n
+(    new[ix] = replacement[i];) N
+(    i ++;) N
+(    ix ++;) N
+(  }) N
+(  ) S
+(if) K
+(\(ix == maxSize\){) p n
+(    dprintf\(2, ") S
+(The replacement string was too long\\n) str
+("\);) p n
+(    ) S
+(return) K
+( -1;) p n
+(  }) N
+(  ) S
+(return) K
+( ix;) p n
+(}) N
+(expand.c) (Page 8/8) (May 29, 17 15:48) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(expand.c) (8/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (1) 9
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(/*  $Id: findChar.c,v 1.9 2017/05/28 00:55:21 tanism3 Exp $ */) c n
+() p n
+(/* Author: Marshall Tanis) c n
+( * CS 352) N
+( * Minishell */) N
+() p n
+( #include <stdlib.h>) N
+( #include <stdio.h>) N
+( #include <string.h>) N
+( #include <unistd.h>) N
+( #include ") S
+(proto.h) str
+(") p n
+() N
+() N
+(/* finds first instance of unquoted character and returns ix of found char */) c n
+(int) k
+( findChar\() p
+(char) k
+( *line, ) p
+(char) k
+( *charToFind, ) p
+(int) k
+( count\){) p n
+(  ) S
+(int) k
+( ix = 0;) p n
+(  ) S
+(int) k
+( ixChar = 0;) p n
+(  ) S
+(int) k
+( num = 0;) p n
+(  ) S
+(int) k
+( len = strlen\(charToFind\);) p n
+(  ) S
+(while) K
+(\(line[ix] != ') p
+(\\0) str
+(' && num != count\){) p n
+(    ) S
+(if) K
+(\(line[ix] == ') p
+(") str
+('\){) p n
+(      ix ++;) N
+(      ) S
+(while) K
+(\(line[ix] != ') p
+(") str
+(' && line[ix] != ') p
+(\\0) str
+('\){) p n
+(        ix ++;) N
+(      }) N
+(      ) S
+(if) K
+(\(line[ix] == ') p
+(\\0) str
+('\){) p n
+(        dprintf\(2, ") S
+(There was an odd number of quotes) str
+("\);) p n
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+(    }) N
+(    ) S
+(while) K
+(\(ixChar < len\){) p n
+(      ) S
+(if) K
+(\(line[ix] == charToFind[ixChar]\){) p n
+(        num ++;) N
+(        ) S
+(if) K
+(\(num == count\){) p n
+(          ) S
+(return) K
+( ix;) p n
+(        }) N
+(        ) S
+(else) K
+({) p n
+(          count --;) N
+(        }) N
+(      }) N
+(      ixChar ++;) N
+(    }) N
+(    ix ++;) N
+(    ixChar = 0;) N
+(  }) N
+(  ) S
+(return) K
+( -2;) p n
+(}) N
+(findChar.c) (Page 1/1) (May 29, 17 15:48) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(findChar.c) (9/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (1) 10
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(/*  $Id: findComment.c,v 1.6 2017/05/25 22:50:16 tanism3 Exp $ */) c n
+() p n
+() N
+(/* Author: Marshall Tanis) c n
+( * CS 352) N
+( * Minishell */) N
+() p n
+( #include <stdlib.h>) N
+( #include <stdio.h>) N
+( #include <string.h>) N
+( #include <unistd.h>) N
+( #include ") S
+(proto.h) str
+(") p n
+() N
+() N
+(/* finds first unquoted instance of comment character and sets the end of line) c n
+( * char at the postion of the # key) N
+( */) N
+(int) k
+( findComment\() p
+(char) k
+( *line\){) p n
+(  ) S
+(int) k
+( ix = findChar\(line, ") p
+(#) str
+(", 1\);) p n
+(  ) S
+(if) K
+(\(ix < 0\){) p n
+(    ) S
+(if) K
+(\(ix == -2\){) p n
+(      ) S
+(return) K
+( 0;) p n
+(    }) N
+(    ) S
+(else) K
+({) p n
+(      ) S
+(return) K
+( -1;) p n
+(    }) N
+(  }) N
+(  ) S
+(else) K
+( ) p
+(if) K
+(\(ix != 0\){) p n
+(    ) S
+(if) K
+(\(line[ix - 1] != ') p
+($) str
+('\){) p n
+(      line[ix] = ') S
+(\\0) str
+(';) p n
+(    }) N
+(  }) N
+(  ) S
+(else) K
+({) p n
+(    line[ix] = ') S
+(\\0) str
+(';) p n
+(  }) N
+(  ) S
+(return) K
+( 0;) p n
+(}) N
+(findComment.c) (Page 1/1) (May 25, 17 15:50) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(findComment.c) (10/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (1-2) 11
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(/*  $Id: findRedir.c,v 1.4 2017/05/31 19:23:05 tanism3 Exp $ */) c n
+() p n
+(#include) K
+( <stdio.h>) p n
+(#include) K
+( <string.h>) p n
+(#include) K
+( <unistd.h>) p n
+(#include) K
+( <stdlib.h>) p n
+(#include) K
+( <fcntl.h>) p n
+(#include) K
+( ") p
+(proto.h) str
+(") p n
+() N
+() N
+(int) k
+( findRedir\() p
+(char) k
+( *newLine, ) p
+(int) k
+( *cfd, ) p
+(int) k
+( inFd, ) p
+(int) k
+( outFd\){) p n
+(  ) S
+(int) k
+( tmpIx = 0;) p n
+(  ) S
+(int) k
+( Err = 0;) p n
+(  ) S
+(int) k
+( DoubleR = 0;) p n
+(  ) S
+(while) K
+(\(newLine[tmpIx] != ') p
+(\\0) str
+('\){) p n
+(    ) S
+(int) k
+( count = 0;) p n
+(    ) S
+(int) k
+( spaces = 0;) p n
+(    ) S
+(char) k
+( *path;) p n
+(    ) S
+(int) k
+( pathStart = 0;) p n
+(    ) S
+(if) K
+(\(newLine[tmpIx] == ') p
+(") str
+('\){) p n
+(      tmpIx ++;) N
+(      ) S
+(while) K
+(\(newLine[tmpIx] != ') p
+(") str
+(' && newLine[tmpIx] != ') p
+(\\0) str
+('\){) p n
+(        tmpIx ++;) N
+(      }) N
+(      ) S
+(if) K
+(\(newLine[tmpIx] == ') p
+(\\0) str
+('\){) p n
+(        dprintf\(2, ") S
+(There was an odd number of quotes \\n) str
+("\);) p n
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+(    }) N
+(    ) S
+(if) K
+(\(newLine[tmpIx] == ') p
+(>) str
+('\){) p n
+(      ) S
+(int) k
+( start = tmpIx;) p n
+(      ) S
+(if) K
+(\(tmpIx != 0\){) p n
+(        ) S
+(if) K
+(\(tmpIx - 1 == 0 && newLine[tmpIx - 1] == ') p
+(2) str
+('\){) p n
+(          Err = 1;) N
+(        }) N
+(        ) S
+(else) K
+( ) p
+(if) K
+(\(newLine[tmpIx - 1] == ') p
+(2) str
+(' && newLine[tmpIx - 2] == ') p
+( ) str
+('\){) p n
+(          Err = 1;) N
+(        }) N
+(      }) N
+(      ) S
+(if) K
+(\(newLine[tmpIx + 1] == ') p
+(>) str
+('\){) p n
+(        DoubleR = 1;) N
+(        spaces ++;) N
+(        tmpIx ++;) N
+(      }) N
+(      tmpIx ++;) N
+(      ) S
+(while) K
+(\(newLine[tmpIx] == ') p
+( ) str
+(' && newLine[tmpIx] != ') p
+(\\0) str
+('\){) p n
+(        spaces ++;) N
+(        tmpIx ++;) N
+(      }) N
+(      ) S
+(if) K
+(\(newLine[tmpIx] == ') p
+(\\0) str
+('\){) p n
+(        dprintf\(cfd[2], ") S
+(Please specify a redirect file\\n) str
+("\);) p n
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+(      pathStart = tmpIx;) N
+(      ) S
+(while) K
+(\(newLine[tmpIx] != ') p
+( ) str
+(' && newLine[tmpIx] != ') p
+(\\0) str
+('\){) p n
+(        ) S
+(if) K
+(\(newLine[tmpIx] == ') p
+(") str
+('\){) p n
+(          ) S
+(int) k
+( tmptmpIx=tmpIx;) p n
+(          ) S
+(while) K
+(\(newLine[tmptmpIx] != ') p
+(\\0) str
+('\){) p n
+(            newLine[tmptmpIx] = newLine[tmptmpIx + 1];) N
+(            tmptmpIx ++;) N
+(          }) N
+(          ) S
+(while) K
+(\(newLine[tmpIx] != ') p
+(") str
+(' && newLine[tmpIx] != ') p
+(\\0) str
+('\){) p n
+(            tmpIx ++;) N
+(            count ++;) N
+(          }) N
+(          ) S
+(if) K
+(\(newLine[tmpIx] == ') p
+(\\0) str
+('\){) p n
+(            dprintf\(cfd[2], ") S
+(There is an odd number of quotes\\n) str
+("\);) p n
+(            ) S
+(return) K
+( -1;) p n
+(          }) N
+(findRedir.c) (Page 1/3) (May 31, 17 12:23) title
+border
+/v 1 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(          tmptmpIx = tmpIx;) p n
+(          ) S
+(while) K
+(\(newLine[tmptmpIx] != ') p
+(\\0) str
+('\){) p n
+(            newLine[tmptmpIx] = newLine[tmptmpIx + 1];) N
+(            tmptmpIx ++;) N
+(          }) N
+(        }) N
+(        ) S
+(else) K
+({) p n
+(          tmpIx ++;) N
+(          count ++;) N
+(        }) N
+(      }) N
+(      ) S
+(char) k
+( saved = newLine[tmpIx];) p n
+(      newLine[tmpIx] = ') S
+(\\0) str
+(';) p n
+(      path = \() S
+(char) k
+( *\)malloc \() p
+(sizeof) K
+(\() p
+(char) k
+(\) * count\);) p n
+(      ) S
+(int) k
+( worked = snprintf\(path, ) p
+(sizeof) K
+(\() p
+(char) k
+(\) * count + 1, ") p
+(%s) str
+(", &\(newLine[pat) p n
+(hStart]\)\);) N
+(      ) S
+(if) K
+(\(worked == 0\){) p n
+(        perror\(") S
+(snprintf) str
+("\);) p n
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+(      path[strlen\(path\)] = ') S
+(\\0) str
+(';) p n
+(      newLine[tmpIx] = saved;) N
+(      tmpIx = start;) N
+(      ) S
+(while) K
+(\(\(count + spaces + 1\) > 0\){) p n
+(        newLine[tmpIx] = ') S
+( ) str
+(';) p n
+(        tmpIx ++;) N
+(        count --;) N
+(      }) N
+(      ) S
+(if) K
+(\(Err == 1\){) p n
+(        newLine[start - 1] = ') S
+( ) str
+(';) p n
+(        ) S
+(if) K
+(\(cfd[2] != 2\){) p n
+(          close\(cfd[2]\);) N
+(        }) N
+(        ) S
+(if) K
+(\(DoubleR == 1\){) p n
+(          cfd[2] = open\(path, O_RDWR|O_CREAT | O_APPEND, 0744\);) N
+(        }) N
+(        ) S
+(else) K
+({) p n
+(          cfd[2] = open\(path, O_RDWR | O_CREAT | O_TRUNC, 0744\);) N
+(        }) N
+(        ) S
+(if) K
+(\(cfd[2] < 0\){) p n
+(          dprintf\(cfd[2], ") S
+(open) str
+("\);) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(      }) N
+(      ) S
+(else) K
+({) p n
+(        ) S
+(if) K
+(\(cfd[1] != outFd\){) p n
+(          close\(cfd[1]\);) N
+(        }) N
+(        ) S
+(if) K
+(\(DoubleR == 1\){) p n
+(          cfd[1] = open\(path, O_RDWR | O_CREAT | O_APPEND, 0744\);) N
+(        }) N
+(        ) S
+(else) K
+({) p n
+(          cfd[1] = open\(path, O_RDWR | O_CREAT | O_TRUNC, 0744\);) N
+(        }) N
+(        ) S
+(if) K
+(\(cfd[1] < 0\){) p n
+(          dprintf\(cfd[2], ") S
+(open) str
+("\);) p n
+(          ) S
+(return) K
+( -1;) p n
+(        }) N
+(      }) N
+(      free\(path\);) N
+(    }) N
+(    ) S
+(if) K
+(\(newLine[tmpIx] == ') p
+(<) str
+('\){) p n
+(      ) S
+(int) k
+( start = tmpIx;) p n
+(      tmpIx ++;) N
+(      ) S
+(while) K
+(\(newLine[tmpIx] == ') p
+( ) str
+(' && newLine[tmpIx] != ') p
+(\\0) str
+('\){) p n
+(        spaces ++;) N
+(        tmpIx ++;) N
+(      }) N
+(      ) S
+(if) K
+(\(newLine[tmpIx] == ') p
+(\\0) str
+('\){) p n
+(findRedir.c) (Page 2/3) (May 31, 17 12:23) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(findRedir.c) (11/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (3) 12
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(        dprintf\(cfd[2], ") p
+(Please specify an input file) str
+("\);) p n
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+(      pathStart = tmpIx;) N
+(      ) S
+(while) K
+(\(newLine[tmpIx] != ') p
+( ) str
+(' && newLine[tmpIx] != ') p
+(\\0) str
+('\){) p n
+(        ) S
+(if) K
+(\(newLine[tmpIx] == ') p
+(") str
+('\){) p n
+(          ) S
+(int) k
+( tmptmpIx=tmpIx;) p n
+(          ) S
+(while) K
+(\(newLine[tmptmpIx] != ') p
+(\\0) str
+('\){) p n
+(            newLine[tmptmpIx] = newLine[tmptmpIx + 1];) N
+(            tmptmpIx ++;) N
+(          }) N
+(          ) S
+(while) K
+(\(newLine[tmpIx] != ') p
+(") str
+(' && newLine[tmpIx] != ') p
+(\\0) str
+('\){) p n
+(            tmpIx ++;) N
+(            count ++;) N
+(          }) N
+(          ) S
+(if) K
+(\(newLine[tmpIx] == ') p
+(\\0) str
+('\){) p n
+(            dprintf\(cfd[2], ") S
+(There is an odd number of quotes) str
+("\);) p n
+(            ) S
+(return) K
+( -1;) p n
+(          }) N
+(          tmptmpIx = tmpIx;) N
+(          ) S
+(while) K
+(\(newLine[tmptmpIx] != ') p
+(\\0) str
+('\){) p n
+(            newLine[tmptmpIx] = newLine[tmptmpIx + 1];) N
+(            tmptmpIx ++;) N
+(          }) N
+(        }) N
+(        ) S
+(else) K
+({) p n
+(          tmpIx ++;) N
+(          count ++;) N
+(        }) N
+(      }) N
+(      ) S
+(char) k
+( saved = newLine[tmpIx];) p n
+(      newLine[tmpIx] = ') S
+(\\0) str
+(';) p n
+(      path = \() S
+(char) k
+( *\)malloc \() p
+(sizeof) K
+(\() p
+(char) k
+(\) * count\);) p n
+(      ) S
+(int) k
+( worked = snprintf\(path, ) p
+(sizeof) K
+(\() p
+(char) k
+(\) * count + 1, ") p
+(%s) str
+(", &\(newLine[pat) p n
+(hStart]\)\);) N
+(      ) S
+(if) K
+(\(worked == 0\){) p n
+(        perror\(") S
+(snprintf) str
+("\);) p n
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+(      path[strlen\(path\)] = ') S
+(\\0) str
+(';) p n
+(      newLine[tmpIx] = saved;) N
+(      tmpIx = start;) N
+(      ) S
+(while) K
+(\(\(count + spaces + 1\) > 0\){) p n
+(        newLine[tmpIx] = ') S
+( ) str
+(';) p n
+(        tmpIx ++;) N
+(        count --;) N
+(      }) N
+(      ) S
+(if) K
+(\(cfd[0] != inFd\){) p n
+(        close\(cfd[0]\);) N
+(      }) N
+(      cfd[0] = open\(path, O_RDONLY\);) N
+(      ) S
+(if) K
+(\(cfd[0] < 0\){) p n
+(        dprintf\(cfd[2],") S
+(open) str
+("\);) p n
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+(    }) N
+(    ) S
+(if) K
+(\(newLine[tmpIx] != ') p
+(\\0) str
+('\){) p n
+(      tmpIx ++;) N
+(    }) N
+(  }) N
+(  ) S
+(return) K
+( 0;) p n
+(}) N
+(findRedir.c) (Page 3/3) (May 31, 17 12:23) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(findRedir.c) (12/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (1-2) 13
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(/* $Id: handlePipes.c,v 1.6 2017/05/30 21:17:49 tanism3 Exp $ */) c n
+() p n
+(#include) K
+( <stdlib.h>) p n
+(#include) K
+( <stdio.h>) p n
+(#include) K
+( <string.h>) p n
+(#include) K
+( <unistd.h>) p n
+(#include) K
+( <ctype.h>) p n
+(#include) K
+( <dirent.h>) p n
+(#include) K
+( <errno.h>) p n
+(#include) K
+( <sys/wait.h>) p n
+(#include) K
+( ") p
+(proto.h) str
+(") p n
+() N
+(int) k
+( handlePipes\() p
+(char) k
+( *line, ) p
+(int) k
+( first, ) p
+(int) k
+( infd, ) p
+(int) k
+( outfd\){) p n
+(  ) S
+(int) k
+( ix = 0;) p n
+(  ) S
+(int) k
+( start = 0;) p n
+(  ) S
+(int) k
+( pipeix = first;) p n
+(  ) S
+(int) k
+( fd[2];) p n
+(  ) S
+(int) k
+( out = infd;) p n
+(  ) S
+(int) k
+( dontpipe = 0;) p n
+(  ) S
+(int) k
+( count = 0;) p n
+(  ) S
+(char) k
+( *command;) p n
+(  ) S
+(int) k
+( val = 0;) p n
+(  ) S
+(while) K
+(\(line[ix] != ') p
+(\\0) str
+('\){) p n
+(    count = 0;) N
+(    ) S
+(if) K
+(\(dontpipe != 1\){) p n
+(      val = pipe\(fd\);) N
+(      ) S
+(if) K
+( \(val < 0\){) p n
+(        perror\(") S
+(pipe) str
+("\);) p n
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+(    }) N
+(    line[pipeix] = ') S
+(\\0) str
+(';) p n
+(    ) S
+(int) k
+( tmpIx = ix;) p n
+(    ) S
+(while) K
+(\(line[tmpIx] != ') p
+(\\0) str
+('\){) p n
+(      count ++;) N
+(      tmpIx ++;) N
+(    }) N
+(    command = \() S
+(char) k
+( *\)malloc\() p
+(sizeof) K
+(\() p
+(char) k
+(\) * count + 1\);) p n
+(    ) S
+(if) K
+(\(command < 0\){) p n
+(      perror\(") S
+(malloc) str
+("\);) p n
+(      ) S
+(return) K
+( -1;) p n
+(    }) N
+(    val = snprintf\(command, ) S
+(sizeof) K
+(\() p
+(char) k
+(\) * count + 1, ") p
+(%s) str
+(", &line[start]\);) p n
+(    ) S
+(if) K
+(\(val < 0\){) p n
+(      perror\(") S
+(snprintf) str
+("\);) p n
+(      ) S
+(return) K
+( -1;) p n
+(    }) N
+(    ix = pipeix + 1;) N
+(    start = ix;) N
+(    tmpIx = ix;) N
+(    ) S
+(while) K
+(\(line[tmpIx] != ') p
+(|) str
+(' && line[tmpIx] != ') p
+(\\0) str
+('\){) p n
+(      tmpIx ++;) N
+(    }) N
+(    ) S
+(if) K
+(\(dontpipe == 0\){) p n
+(      ) S
+(int) k
+( cpid = processline\(command, out, fd[1], DONTWAIT | DONTEXPAND\);) p n
+(      ) S
+(if) K
+(\(cpid < 0\){) p n
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+() N
+(      close\(fd[1]\);) N
+(    }) N
+(    ) S
+(else) K
+({) p n
+(      ) S
+(int) k
+( cpid = processline\(command, out, outfd, WAIT | DONTEXPAND\);) p n
+(      close\(out\);) N
+(      ) S
+(if) K
+(\(cpid < 0\){) p n
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+(    }) N
+(    ) S
+(if) K
+(\(out != 0\){) p n
+(handlePipes.c) (Page 1/2) (May 31, 17 12:01) title
+border
+/v 1 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(      close\(out\);) p n
+(    }) N
+(    ) S
+(if) K
+(\(dontpipe != 1\){) p n
+(      line[pipeix] = ') S
+(|) str
+(';) p n
+(      pipeix = tmpIx;) N
+(      out = fd[0];) N
+(    }) N
+(    ) S
+(else) K
+({) p n
+(      ix = tmpIx;) N
+(    }) N
+(    ) S
+(if) K
+(\(line[tmpIx] == ') p
+(\\0) str
+(' && dontpipe != 1\){) p n
+(      dontpipe = 1;) N
+(    }) N
+(  }) N
+(  free\(command\);) N
+(  ) S
+(return) K
+( 0;) p n
+(}) N
+(handlePipes.c) (Page 2/2) (May 31, 17 12:01) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(handlePipes.c) (13/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (1) 14
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(#    $Id: Makefile,v 1.10 2017/06/01 16:08:55 tanism3 Exp $) c n
+() p n
+() N
+() N
+(FILES) l
+(=arg_parse.c builtin.c msh.c expand.c strmode.c findComment.c findChar.c si) p n
+(gHandler.c findRedir.c handlePipes.c stmts.c) N
+(OBFILES) l
+(=${FILES:.c=.o}) p n
+(CC) l
+(=gcc) p n
+(CFLAGS) l
+(=-g -Wall) p n
+() N
+(msh) L
+(:$\(OBFILES\)) p n
+() N
+(#dependencies list) c n
+(${OBFILES} : proto.h) p n
+(clean) L
+(:) p n
+() S 8 T (rm -f $\(OBFILES\) msh) N
+(Makefile) (Page 1/1) (Jun 01, 17 9:08) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(Makefile) (14/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (1-2) 15
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(/*    $Id: msh.c,v 1.47 2017/06/02 02:13:41 tanism3 Exp $    */) c n
+() p n
+() N
+() N
+(/* CS 352 -- Mini Shell!) c n
+( *) N
+( *   Sept 21, 2000,  Phil Nelson) N
+( *   Modified April 8, 2001) N
+( *   Modified January 6, 2003) N
+( *) N
+( *) N
+( * Modified by Marshall Tanis) N
+( * on March 28th, 2017) N
+( * for CS352 Spring 2017) N
+( */) N
+() p n
+(#include) K
+( <stdio.h>) p n
+(#include) K
+( <string.h>) p n
+(#include) K
+( <unistd.h>) p n
+(#include) K
+( <errno.h>) p n
+(#include) K
+( <stdlib.h>) p n
+(#include) K
+( <fcntl.h>) p n
+(#include) K
+( <sys/types.h>) p n
+(#include) K
+( <sys/wait.h>) p n
+(#include) K
+( <signal.h>) p n
+(#include) K
+( ") p
+(proto.h) str
+(") p n
+() N
+() N
+() N
+() N
+(/* Shell main */) c n
+() p n
+(int) k n
+(main \() p
+(int) k
+( argc, ) p
+(char) k
+( **argv\)) p n
+({) N
+(    ) S
+(/* define  global variables */) c n
+(    shiftAmt = 1;) p n
+(    myArgc = argc;) N
+(    myArgv = argv;) N
+(    sigHappened = 0;) N
+(    myChild = 0;) N
+(    ) S
+(struct) k
+( sigaction sigAct;) p n
+(    sigAct.sa_handler = signalHandler;) N
+(    sigemptyset\(&sigAct.sa_mask\);) N
+(    sigAct.sa_flags = SA_RESTART;) N
+(    sigaction\(SIGINT, &sigAct, ) S
+(NULL) K
+(\);) p n
+(    ) S
+(char) k
+(   buffer [LINELEN];) p n
+(    ) S
+(int) k
+(    len;) p n
+(    ) S
+(FILE) k
+( *myStream;) p n
+(    ) S
+(/* tests for script file after initial start up and then sets thescript) c n
+(     * to standard in */) N
+(    ) p
+(if) K
+(\(argc > 1\){) p n
+(      ) S
+(/* Switched to using fopen to create FILE *stream that can be used to assi) c n
+(gn) N
+(       * myStream to either stdin or to the open script */) N
+(      myStream = fopen\(argv[1],") p
+(r) str
+("\);) p n
+(      ) S
+(if) K
+(\(myStream == ) p
+(NULL) K
+(\){) p n
+(        perror\(") S
+(fopen) str
+("\);) p n
+(        exit\(127\);) N
+(      }) N
+(    }) N
+(    ) S
+(else) K
+({) p n
+(      myStream = stdin;) N
+(    }) N
+(    ) S
+(while) K
+( \(1\) {) p n
+(        ) S
+(/* prompt and get line */) c n
+(        sigHappened = 0;) p n
+(      ) S 8 T () S
+(if) K
+(\(argc == 1\){) p n
+(          ) S
+(if) K
+(\(getenv\(") p
+(P1) str
+("\) == ) p
+(NULL) K
+(\){) p n
+(msh.c) (Page 1/4) (Jun 01, 17 20:27) title
+border
+/v 1 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(            fprintf \(stderr, ") p
+(%% ) str
+("\);) p n
+(          }) N
+(          ) S
+(else) K
+({) p n
+(            fprintf\(stderr, ") S
+(%s ) str
+(", getenv\(") p
+(P1) str
+("\)\);) p n
+(          }) N
+(        }) N
+(      ) S 8 T () S
+(if) K
+( \(fgets \(buffer, LINELEN, myStream\) != buffer\)) p n
+(      ) S 8 T (  ) S
+(break) K
+(;) p n
+() N
+(              ) S
+(/* Get rid of \\n at end of buffer. */) c n
+(      ) p 8 T (len = strlen\(buffer\);) N
+(      ) S 8 T () S
+(if) K
+( \(buffer[len-1] == ') p
+(\\n) str
+('\)) p n
+(      ) S 8 T (    buffer[len-1] = 0;) N
+() N
+(      ) S 8 T () S
+(/* Run it ... */) c n
+(        ) p
+(if) K
+(\(firstWord\(buffer\)\){) p n
+(          doStatement\(buffer\);) N
+(        }) N
+(        ) S
+(else) K
+({) p n
+(      ) S 8 T (   processline \(buffer, 0,1, WAIT | EXPAND\);) N
+(        }) N
+(    }) N
+(    ) S
+(if) K
+( \(!feof\(myStream\)\)) p n
+(      perror \(") S
+(read) str
+("\);) p n
+() N
+(    ) S
+(return) K
+( 0;) p 16 T () S 24 T () S
+(/* Also known as exit \(0\); */) c n
+(}) p n
+() N
+() N
+(int) k
+( processline \() p
+(char) k
+( *line , ) p
+(int) k
+( inFd, ) p
+(int) k
+( outFd, ) p
+(int) k
+( flags\)) p n
+({) N
+(    pid_t  cpid;) N
+(    ) S
+(int) k
+( status;) p n
+(    ) S
+(while) K
+(\(\(cpid = waitpid\(-1, &status, WNOHANG\)\) > 0\){) p n
+(      ) S
+(if) K
+(\(WIFEXITED\(status\)\){) p n
+(        exVal = WEXITSTATUS\(status\);) N
+(      }) N
+(    }) N
+(    ) S
+(int) k
+( cfd[3] = {inFd, outFd, 2};) p n
+(    ) S
+(int) k
+( argcp;) p n
+(    ) S
+(char) k
+( newLine[LINELEN]= {0};) p n
+(    ) S
+(int) k
+( result = 0;) p n
+(    ) S
+(if) K
+(\(flags & EXPAND\){) p n
+(      result = findComment\(line\);) N
+(      ) S
+(if) K
+(\(result < 0\){) p n
+(        exVal = 127;) N
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+(      result = expand\(line, newLine, LINELEN\);) N
+(      ) S
+(if) K
+(\(result < 0\){) p n
+(        exVal = 127;) N
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+(    }) N
+(    ) S
+(else) K
+({) p n
+(      result = snprintf\(newLine, LINELEN, ") S
+(%s) str
+(", line\);) p n
+(      ) S
+(if) K
+(\(result < 0\){) p n
+(        perror\(") S
+(snprintf) str
+("\);) p n
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+(    }) N
+(    result = findChar\(newLine, ") S
+(|) str
+(", 1\);) p n
+(    ) S
+(if) K
+(\(result == -1\){) p n
+(      ) S
+(return) K
+( -1;) p n
+(    }) N
+(    ) S
+(else) K
+( ) p
+(if) K
+(\(result >= 0\){) p n
+(      result = handlePipes\(newLine, result, inFd, outFd\);) N
+(      ) S
+(if) K
+(\(result < 0\){) p n
+(        ) S
+(return) K
+( -1;) p n
+(msh.c) (Page 2/4) (Jun 01, 17 20:27) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(msh.c) (15/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (3-4) 16
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(      }) p n
+(      ) S
+(return) K
+( 0;) p n
+(    }) N
+(    result = findRedir\(newLine, cfd, inFd, outFd\);) N
+(    ) S
+(if) K
+(\(result < 0\){) p n
+(      exVal = 127;) N
+(      ) S
+(return) K
+( -1;) p n
+(    }) N
+(    ) S
+(char) k
+( **argList = arg_parse\(newLine, &argcp\);) p n
+(    ) S
+(if) K
+(\(argList == 0\){) p n
+(      exVal = 127;) N
+(      ) S
+(return) K
+( -1;) p n
+(    }) N
+(    ) S
+(int) k
+( built = isBuiltIn\(argList, argcp\);) p n
+(    ) S
+(if) K
+(\(!built\){) p n
+(      ) S
+(/* Start a new process to do the job. */) c n
+(      ) p
+(if) K
+(\(argcp == 0\){) p n
+(        ) S
+(return) K
+( -1;) p n
+(      }) N
+(      cpid = fork\(\);) N
+(      ) S
+(if) K
+( \(cpid < 0\) {) p n
+(        perror\(") S
+(fork) str
+("\);) p n
+(        exVal = 127;) N
+(        ) S
+(return) K
+(  -1;) p n
+(      }) N
+() N
+(      ) S
+(/* Check for who we are! */) c n
+(      ) p
+(if) K
+( \(cpid == 0\) {) p n
+(        ) S
+(/* We are the child! */) c n
+(        ) p
+(for) K
+(\() p
+(int) k
+( i = 0; i < 3; i ++\){) p n
+(          ) S
+(if) K
+(\(cfd[i] != i\){) p n
+(            ) S
+(int) k
+( worked = dup2\(cfd[i], i\);) p n
+(            ) S
+(if) K
+(\(worked < 0\){) p n
+(              perror\(") S
+(dup2) str
+("\);) p n
+(              ) S
+(return) K
+( -1;) p n
+(            }) N
+(            close\(cfd[i]\);) N
+(          }) N
+(        }) N
+(        execvp \(argList[0], argList\);) N
+(        perror\(") S
+(exec) str
+("\);) p n
+(        close\(0\);) N
+(        exit \(127\);) N
+(      }) N
+(      ) S
+(if) K
+(\(flags & WAIT\){) p n
+(        ) S
+(/* Have the parent wait for child to complete */) c n
+(        ) p
+(if) K
+( \(waitpid \(cpid, &status, 0\) < 0\)) p n
+(          perror\( ") S
+(waitpid) str
+("\);) p n
+() N
+(        ) S
+(/* tests to see if the program exited normally */) c n
+(        ) p
+(if) K
+(\(WIFEXITED\(status\)\){) p n
+(          ) S
+(/* gets the exit value for the last normal exit */) c n
+(          exVal = WEXITSTATUS\(status\);) p n
+(        }) N
+(        ) S
+(/* code is interupted, sets exit to abnormal val */) c n
+(        ) p
+(else) K
+({) p n
+(          exVal = 127;) N
+(        }) N
+(      }) N
+(      ) S
+(else) K
+({) p n
+(        ) S
+(return) K
+( cpid;) p n
+(      }) N
+(    }) N
+(    ) S
+(/* sets exVal to 0 on success and 1 on failure */) c n
+(    ) p
+(else) K
+({) p n
+(      exVal = exBuiltIn\(argList, argcp, cfd[1], cfd[0], cfd[2]\);) N
+(      ) S
+(for) K
+(\() p
+(int) k
+( i = 0; i < 3; i ++\){) p n
+(        ) S
+(if) K
+(\(cfd[i] != i\){) p n
+(          close\(cfd[i]\);) N
+(msh.c) (Page 3/4) (Jun 01, 17 20:27) title
+border
+/v 1 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(        }) p n
+(      }) N
+(    }) N
+(    ) S
+(if) K
+(\(cfd[0] != inFd && cfd[0] != 0\){) p n
+(      close\(cfd[0]\);) N
+(    }) N
+(    ) S
+(if) K
+(\(cfd[1] != outFd && cfd[1] != 1\){) p n
+(      close\(cfd[1]\);) N
+(    }) N
+(    ) S
+(if) K
+(\(cfd[2] != 2\){) p n
+(      close\(cfd[2]\);) N
+(    }) N
+(    free\(argList\);) N
+(    ) S
+(return) K
+( 0;) p n
+() N
+(}) N
+(msh.c) (Page 4/4) (Jun 01, 17 20:27) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(msh.c) (16/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (1) 17
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(/*    $Id: proto.h,v 1.21 2017/06/02 02:13:41 tanism3 Exp $    */) c n
+() p n
+() N
+() N
+(#define) K
+( LINELEN 200000) p n
+(#define) K
+( WAIT 1) p n
+(#define) K
+( DONTWAIT 0) p n
+(#define) K
+( EXPAND 2) p n
+(#define) K
+( DONTEXPAND 0) p n
+() N
+() N
+(char) k
+( **arg_parse\() p
+(char) k
+( *line, ) p
+(int) k
+( *argcp\);) p n
+(int) k
+( isBuiltIn\() p
+(char) k
+( **args, ) p
+(int) k
+( argcp\);) p n
+(int) k
+( exBuiltIn\() p
+(char) k
+( **args, ) p
+(int) k
+( argcp, ) p
+(int) k
+( outfd, ) p
+(int) k
+( infd, ) p
+(int) k
+( newErr\);) p n
+(int) k
+( expand \() p
+(char) k
+( *orig, ) p
+(char) k
+( *new, ) p
+(int) k
+( newsize\);) p n
+(int) k
+( findChar\() p
+(char) k
+( *line, ) p
+(char) k
+( *charToFind, ) p
+(int) k
+( count\);) p n
+(int) k
+( findComment\() p
+(char) k
+( *line\);) p n
+(int) k
+( processline \() p
+(char) k
+( *line , ) p
+(int) k
+( inFd, ) p
+(int) k
+( outFd, ) p
+(int) k
+( flags\);) p n
+(void) k
+( signalHandler\() p
+(int) k
+( signo\);) p n
+(int) k
+( findRedir\() p
+(char) k
+( *newLine, ) p
+(int) k
+( *cfd, ) p
+(int) k
+( inFd, ) p
+(int) k
+( outFd\);) p n
+(int) k
+( handlePipes\() p
+(char) k
+( *line, ) p
+(int) k
+( first, ) p
+(int) k
+( infd, ) p
+(int) k
+( outfd\);) p n
+(int) k
+( firstWord\() p
+(char) k
+( *line\);) p n
+(int) k
+( doStatement\() p
+(char) k
+( *line\);) p n
+() N
+() N
+() N
+() N
+() N
+(char) k
+( **myArgv;) p n
+(int) k
+( myArgc;) p n
+(int) k
+( shiftAmt;) p n
+(int) k
+( exVal;) p n
+(int) k
+( sigHappened;) p n
+(int) k
+( myChild;) p n
+(proto.h) (Page 1/1) (Jun 01, 17 19:13) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(proto.h) (17/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (1) 18
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(/*  $Id: sigHandler.c,v 1.8 2017/05/18 17:48:30 tanism3 Exp $*/) c n
+() p n
+() N
+(#include) K
+( <stdlib.h>) p n
+(#include) K
+( <signal.h>) p n
+(#include) K
+( <stdio.h>) p n
+(#include) K
+( ") p
+(proto.h) str
+(") p n
+(#include) K
+( <errno.h>) p n
+() N
+() N
+(/* sets exit value if there was a signal interrupt, and then kill's the child.) c n
+( * also informs the process that a sigHappened) N
+( */) N
+(void) k
+( signalHandler\() p
+(int) k
+( signo\){) p n
+(  ) S
+(if) K
+(\(signo == SIGINT\){) p n
+(    exVal = EINTR;) N
+(    ) S
+(if) K
+(\(myChild != 0\){) p n
+(      kill\(\(pid_t\)myChild, SIGINT\);) N
+(    }) N
+(    sigHappened = 1;) N
+(    ) S
+(return) K
+(;) p n
+(  }) N
+(}) N
+(sigHandler.c) (Page 1/1) (May 18, 17 10:48) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(sigHandler.c) (18/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (1-2) 19
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(/* $Id: stmts.c,v 1.4 2017/06/02 03:37:36 tanism3 Exp $ */) c n
+() p n
+(#include) K
+( <stdlib.h>) p n
+(#include) K
+( <stdio.h>) p n
+(#include) K
+( <string.h>) p n
+(#include) K
+( ") p
+(proto.h) str
+(") p n
+() N
+(struct) k
+( stmtLine{) p n
+(  ) S
+(int) k
+( kind;) p n
+(  ) S
+(int) k
+( elseEndIx;) p n
+(  ) S
+(char) k
+( *command;) p n
+(};) N
+() N
+(struct) k
+( stmt_list{) p n
+(  ) S
+(int) k
+( numLines;) p n
+(  ) S
+(int) k
+( addLines;) p n
+(  ) S
+(struct) k
+( stmtLine *stmts;) p n
+(};) N
+(enum) k
+( firstWord {W_IF = 1, W_WHILE = 2, W_ELSE = 4, W_END = 8, W_OTHER = 16};) p n
+(static) K
+( ) p
+(char) k
+( word[15];) p n
+(static) K
+( ) p
+(int) k
+( tmpKind = 0;) p n
+(void) k
+( addStatement\() p
+(struct) k
+( stmtLine *currLine, ) p
+(struct) k
+( stmt_list *list\);) p n
+(void) k
+( readStmt\() p
+(struct) k
+( stmtLine *fLine, ) p
+(int) k
+( kind, ) p
+(struct) k
+( stmt_list *list\);) p n
+(struct) k
+( stmt_list * init\(\);) p n
+(struct) k
+( stmtLine *createLine\() p
+(char) k
+( *line\);) p n
+() N
+(int) k
+( runStmt\() p
+(int) k
+( stIx, ) p
+(struct) k
+( stmtLine *list\){) p n
+(  ) N
+(}) N
+(void) k
+( readStmt\() p
+(struct) k
+( stmtLine *fLine, ) p
+(int) k
+( kind, ) p
+(struct) k
+( stmt_list *list\){) p n
+(  addStatement\(fLine, list\);) N
+(  ) S
+(int) k
+( numElse = 0;) p n
+(  ) S
+(if) K
+(\(kind == W_IF\){) p n
+(    numElse = 1;) N
+(  }) N
+(  ) S
+(else) K
+({) p n
+(    numElse = 0;) N
+(  }) N
+(  ) S
+(struct) k
+( stmtLine *nextLine = \() p
+(struct) k
+( stmtLine *\)malloc\() p
+(sizeof) K
+(\() p
+(struct) k
+( stmtLine\)\)) p n
+(;) N
+(  ) S
+(if) K
+(\(nextLine < 0\){) p n
+(    perror\(") S
+(malloc) str
+("\);) p n
+(    ) S
+(return) K
+(;) p n
+(  }) N
+(  nextLine->command = \() S
+(char) k
+( *\)malloc\() p
+(sizeof) K
+(\() p
+(char) k
+(\) * LINELEN\);) p n
+(  fgets\(nextLine->command, LINELEN + 1, stdin\);) N
+(  firstWord\(nextLine->command\);) N
+(  ) S
+(int) k
+( nextKind = tmpKind;) p n
+(  ) S
+(while) K
+(\(nextKind != W_END\){) p n
+(    ) S
+(switch) K
+( \(nextKind\){) p n
+(      ) S
+(case) K
+( W_IF || W_WHILE:) p n
+(        readStmt\(nextLine, nextKind, list\);) N
+(        ) S
+(break) K
+(;) p n
+(      ) S
+(case) K
+( W_ELSE:) p n
+(        ) S
+(if) K
+(\(numElse > 0\){) p n
+(          nextLine->elseEndIx = list->numLines;) N
+(          addStatement\(nextLine, list\);) N
+(          numElse --;) N
+(        }) N
+(        ) S
+(else) K
+({) p n
+(          dprintf\(2, ") S
+(Else in a while or without a corresponding If\\n) str
+("\);) p n
+(        }) N
+(        ) S
+(break) K
+(;) p n
+(      ) S
+(case) K
+( W_OTHER:) p n
+(        addStatement\(nextLine,list\);) N
+(        ) S
+(break) K
+(;) p n
+(    }) N
+(    fgets\(nextLine->command, LINELEN + 1, stdin\);) N
+(    nextLine->command[strlen\(nextLine->command\) - 1] = ') S
+(\\0) str
+(';) p n
+(stmts.c) (Page 1/3) (Jun 01, 17 20:37) title
+border
+/v 1 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(    firstWord\(nextLine->command\);) p n
+(    nextKind = tmpKind;) N
+(  }) N
+(  nextLine->elseEndIx = list->numLines;) N
+(  addStatement\(nextLine, list\);) N
+(}) N
+(void) k
+( addStatement\() p
+(struct) k
+( stmtLine *currLine, ) p
+(struct) k
+( stmt_list *list\){) p n
+(  list->stmts[list->addLines] = *currLine;) N
+(  list->numLines ++;) N
+(  list->addLines ++;) N
+(}) N
+(struct) k
+( stmt_list * init\(\){) p n
+(  ) S
+(struct) k
+( stmt_list *list = \() p
+(struct) k
+( stmt_list *\)malloc\() p
+(sizeof) K
+(\() p
+(struct) k
+( stmt_list\)\);) p n
+(  ) S
+(if) K
+(\(list < 0\){) p n
+(    perror\(") S
+(malloc) str
+("\);) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  list->stmts = \() S
+(struct) k
+( stmtLine *\)malloc\() p
+(sizeof) K
+(\() p
+(struct) k
+( stmtLine\) * LINELEN\);) p n
+(  list->numLines = 0;) N
+(  list->addLines = 0;) N
+(  ) S
+(return) K
+( list;) p n
+(}) N
+() N
+(struct) k
+( stmtLine *createLine\() p
+(char) k
+( *line\){) p n
+(  ) S
+(struct) k
+( stmtLine *tmpLine = \() p
+(struct) k
+( stmtLine *\)malloc \() p
+(sizeof) K
+(\() p
+(struct) k
+( stmtLine\)\)) p n
+(;) N
+(  ) S
+(if) K
+(\(tmpLine < 0\){) p n
+(    perror\(") S
+(malloc) str
+("\);) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  tmpLine->command = \() S
+(char) k
+( *\) malloc \() p
+(sizeof) K
+(\() p
+(char) k
+(\) * LINELEN\);) p n
+(  ) S
+(if) K
+(\(tmpLine->command < 0\){) p n
+(    perror\(") S
+(malloc) str
+("\);) p n
+(    ) S
+(return) K
+( ) p
+(NULL) K
+(;) p n
+(  }) N
+(  tmpLine->kind = tmpKind;) N
+(  tmpLine->elseEndIx = 0;) N
+(  tmpLine->command = line;) N
+(  ) S
+(return) K
+( tmpLine;) p n
+(}) N
+(int) k
+( doStatement\() p
+(char) k
+( *line\){) p n
+(  ) S
+(struct) k
+( stmt_list *myList = init\(\);) p n
+(  ) S
+(struct) k
+( stmtLine *myLine = createLine\(line\);) p n
+(  readStmt\(myLine, myLine->kind, myList\);) N
+(  ) S
+(return) K
+( 0;) p n
+(}) N
+(int) k
+( firstWord\() p
+(char) k
+( *line\){) p n
+(  ) S
+(int) k
+( ix = 0;) p n
+(  ) S
+(while) K
+(\(line[ix] != ') p
+(\\0) str
+(' && line[ix] == ') p
+( ) str
+('\){) p n
+(    ix ++;) N
+(  }) N
+(  ) S
+(if) K
+(\(line[ix] == ') p
+(") str
+('\){) p n
+(    ) S
+(return) K
+( 0;) p n
+(  }) N
+(  ) S
+(else) K
+( ) p
+(if) K
+(\(line[ix] == ') p
+(\\0) str
+('\){) p n
+(    ) S
+(return) K
+( 0;) p n
+(  }) N
+(  ) S
+(int) k
+( wordIx = 0;) p n
+(  ) S
+(while) K
+(\(line[ix] != ') p
+( ) str
+(' && line[ix] != ') p
+(\\0) str
+('\){) p n
+(    word[wordIx] = line[ix];) N
+(    ix ++;) N
+(    wordIx ++;) N
+(  }) N
+(  word[wordIx] = ') S
+(\\0) str
+(';) p n
+(  ) S
+(if) K
+(\(strcmp\(") p
+(if) str
+(", word\) == 0\){) p n
+(    tmpKind = W_IF;) N
+(    ) S
+(return) K
+( 1;) p n
+(  }) N
+(  ) S
+(else) K
+( ) p
+(if) K
+(\(strcmp\(") p
+(while) str
+(", word\) == 0\){) p n
+(stmts.c) (Page 2/3) (Jun 01, 17 20:37) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(stmts.c) (19/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (3) 20
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(    tmpKind = W_WHILE;) p n
+(    ) S
+(return) K
+( 1;) p n
+(  }) N
+(  ) S
+(else) K
+({) p n
+(    ) S
+(if) K
+(\(strcmp\(word,") p
+(else) str
+("\) == 0\){) p n
+(      tmpKind = W_ELSE;) N
+(      ) S
+(return) K
+( 0;) p n
+(    }) N
+(    ) S
+(else) K
+( ) p
+(if) K
+(\(strcmp\(word, ") p
+(end) str
+("\) == 0\){) p n
+(      tmpKind = W_END;) N
+(      ) S
+(return) K
+( 0;) p n
+(    }) N
+(    ) S
+(else) K
+({) p n
+(      tmpKind = W_OTHER;) N
+(      ) S
+(return) K
+( 0;) p n
+(    }) N
+(  }) N
+(  ) S
+(if) K
+(\(strcmp\(") p
+(if) str
+(", word\) == 0 || strcmp\(") p
+(while) str
+(", word\) == 0\){) p n
+(    ) S
+(return) K
+( 1;) p n
+(  }) N
+(  ) S
+(else) K
+({) p n
+(    ) S
+(return) K
+( 0;) p n
+(  }) N
+(}) N
+(stmts.c) (Page 3/3) (Jun 01, 17 20:37) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(stmts.c) (20/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (1-2) 21
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(/*) c 8 T ($NetBSD: strmode.c,v 1.19 2012/06/25 22:32:46 abs Exp $) S 64 T (*/) N
+() p n
+(/*-) c n
+( * Copyright \(c\) 1990, 1993) N
+( *) S 8 T (The Regents of the University of California.  All rights reserved.) N
+( *) N
+( * Redistribution and use in source and binary forms, with or without) N
+( * modification, are permitted provided that the following conditions) N
+( * are met:) N
+( * 1. Redistributions of source code must retain the above copyright) N
+( *    notice, this list of conditions and the following disclaimer.) N
+( * 2. Redistributions in binary form must reproduce the above copyright) N
+( *    notice, this list of conditions and the following disclaimer in the) N
+( *    documentation and/or other materials provided with the distribution.) N
+( * 3. Neither the name of the University nor the names of its contributors) N
+( *    may be used to endorse or promote products derived from this software) N
+( *    without specific prior written permission.) N
+( *) N
+( * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND) N
+( * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE) N
+( * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE) N
+( * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE) N
+( * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL) N
+( * DAMAGES \(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS) N
+( * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION\)) N
+( * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT) N
+( * LIABILITY, OR TORT \(INCLUDING NEGLIGENCE OR OTHERWISE\) ARISING IN ANY WAY) N
+( * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF) N
+( * SUCH DAMAGE.) N
+( */) N
+() p n
+(#if) K
+( HAVE_NBTOOL_CONFIG_H) p n
+(#include) K
+( ") p
+(nbtool_config.h) str
+(") p n
+(#endif) K n
+() p n
+(#include) K
+( <sys/cdefs.h>) p n
+(#if) K
+( ) p
+(defined) K
+(\(LIBC_SCCS\) && !) p
+(defined) K
+(\(lint\)) p n
+(#if) K
+( 0) p n
+(static) K
+( ) p
+(char) k
+( sccsid[] = ") p
+(@\(#\)strmode.c) str 40 T (8.3 \(Berkeley\) 8/15/94) S
+(";) p n
+(#else) K n
+(__RCSID\(") p
+($NetBSD: strmode.c,v 1.19 2012/06/25 22:32:46 abs Exp $) str
+("\);) p n
+(#endif) K n
+(#endif) S
+( ) p
+(/* LIBC_SCCS and not lint */) c n
+() p n
+(#include) K
+( <sys/types.h>) p n
+(#include) K
+( <sys/stat.h>) p n
+() N
+(#include) K
+( <assert.h>) p n
+(#include) K
+( <unistd.h>) p n
+() N
+(#if) K
+( !HAVE_STRMODE) p n
+(void) k n
+(strmode\(mode_t mode, ) p
+(char) k
+( *p\)) p n
+({) N
+() N
+(  ) S
+(//_DIAGASSERT\(p != NULL\);) c n
+() p n
+() S 8 T ( ) S
+(/* print type */) c n
+() p 8 T () S
+(switch) K
+( \(mode & S_IFMT\) {) p n
+() S 8 T () S
+(case) K
+( S_IFDIR:) p 24 T () S 32 T () S 40 T () S
+(/* directory */) c n
+() p 8 T () S 16 T (*p++ = ') S
+(d) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T () S
+(case) K
+( S_IFCHR:) p 24 T () S 32 T () S 40 T () S
+(/* character special */) c n
+() p 8 T () S 16 T (*p++ = ') S
+(c) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T () S
+(case) K
+( S_IFBLK:) p 24 T () S 32 T () S 40 T () S
+(/* block special */) c n
+() p 8 T () S 16 T (*p++ = ') S
+(b) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T () S
+(case) K
+( S_IFREG:) p 24 T () S 32 T () S 40 T () S
+(/* regular */) c n
+(strmode.c) (Page 1/3) (May 04, 17 15:54) title
+border
+/v 1 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+(#ifdef) K
+( S_ARCH2) p n
+() S 8 T () S 16 T () S
+(if) K
+( \(\(mode & S_ARCH2\) != 0\) {) p n
+() S 8 T () S 16 T () S 24 T (*p++ = ') S
+(A) str
+(';) p n
+() S 8 T () S 16 T (} ) S
+(else) K
+( ) p
+(if) K
+( \(\(mode & S_ARCH1\) != 0\) {) p n
+() S 8 T () S 16 T () S 24 T (*p++ = ') S
+(a) str
+(';) p n
+() S 8 T () S 16 T (} ) S
+(else) K
+( {) p n
+(#endif) K n
+() p 8 T () S 16 T () S 24 T (*p++ = ') S
+(-) str
+(';) p n
+(#ifdef) K
+( S_ARCH2) p n
+() S 8 T () S 16 T (}) N
+(#endif) K n
+() p 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T () S
+(case) K
+( S_IFLNK:) p 24 T () S 32 T () S 40 T () S
+(/* symbolic link */) c n
+() p 8 T () S 16 T (*p++ = ') S
+(l) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+(#ifdef) K
+( S_IFSOCK) p n
+() S 8 T () S
+(case) K
+( S_IFSOCK:) p 24 T () S 32 T () S 40 T () S
+(/* socket */) c n
+() p 8 T () S 16 T (*p++ = ') S
+(s) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+(#endif) K n
+(#ifdef) S
+( S_IFIFO) p n
+() S 8 T () S
+(case) K
+( S_IFIFO:) p 24 T () S 32 T () S 40 T () S
+(/* fifo */) c n
+() p 8 T () S 16 T (*p++ = ') S
+(p) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+(#endif) K n
+(#ifdef) S
+( S_IFWHT) p n
+() S 8 T () S
+(case) K
+( S_IFWHT:) p 24 T () S 32 T () S 40 T () S
+(/* whiteout */) c n
+() p 8 T () S 16 T (*p++ = ') S
+(w) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+(#endif) K n
+(#ifdef) S
+( S_IFDOOR) p n
+() S 8 T () S
+(case) K
+( S_IFDOOR:) p 24 T () S 32 T () S 40 T () S
+(/* door */) c n
+() p 8 T () S 16 T (*p++ = ') S
+(D) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+(#endif) K n
+() p 8 T () S
+(default) K
+(:) p 24 T () S 32 T () S 40 T () S
+(/* unknown */) c n
+() p 8 T () S 16 T (*p++ = ') S
+(?) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T (}) N
+() S 8 T () S
+(/* usr */) c n
+() p 8 T () S
+(if) K
+( \(mode & S_IRUSR\)) p n
+() S 8 T () S 16 T (*p++ = ') S
+(r) str
+(';) p n
+() S 8 T () S
+(else) K n
+() p 8 T () S 16 T (*p++ = ') S
+(-) str
+(';) p n
+() S 8 T () S
+(if) K
+( \(mode & S_IWUSR\)) p n
+() S 8 T () S 16 T (*p++ = ') S
+(w) str
+(';) p n
+() S 8 T () S
+(else) K n
+() p 8 T () S 16 T (*p++ = ') S
+(-) str
+(';) p n
+() S 8 T () S
+(switch) K
+( \(mode & \(S_IXUSR | S_ISUID\)\) {) p n
+() S 8 T () S
+(case) K
+( 0:) p n
+() S 8 T () S 16 T (*p++ = ') S
+(-) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T () S
+(case) K
+( S_IXUSR:) p n
+() S 8 T () S 16 T (*p++ = ') S
+(x) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T () S
+(case) K
+( S_ISUID:) p n
+() S 8 T () S 16 T (*p++ = ') S
+(S) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T () S
+(case) K
+( S_IXUSR | S_ISUID:) p n
+() S 8 T () S 16 T (*p++ = ') S
+(s) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T (}) N
+() S 8 T () S
+(/* group */) c n
+() p 8 T () S
+(if) K
+( \(mode & S_IRGRP\)) p n
+() S 8 T () S 16 T (*p++ = ') S
+(r) str
+(';) p n
+() S 8 T () S
+(else) K n
+() p 8 T () S 16 T (*p++ = ') S
+(-) str
+(';) p n
+() S 8 T () S
+(if) K
+( \(mode & S_IWGRP\)) p n
+() S 8 T () S 16 T (*p++ = ') S
+(w) str
+(';) p n
+(strmode.c) (Page 2/3) (May 04, 17 15:54) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(strmode.c) (21/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+%%Page: (3) 22
+%%BeginPageSetup
+/pagesave save def
+sh 0 translate 90 rotate
+%%EndPageSetup
+iso1dict begin
+gsave
+llx lly 12 add translate
+/v 0 store
+/x0 x v get 3.147420 add sx cw mul add store
+/y0 y v get bfs th add sub store
+x0 y0 moveto
+() p 8 T () S
+(else) K n
+() p 8 T () S 16 T (*p++ = ') S
+(-) str
+(';) p n
+() S 8 T () S
+(switch) K
+( \(mode & \(S_IXGRP | S_ISGID\)\) {) p n
+() S 8 T () S
+(case) K
+( 0:) p n
+() S 8 T () S 16 T (*p++ = ') S
+(-) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T () S
+(case) K
+( S_IXGRP:) p n
+() S 8 T () S 16 T (*p++ = ') S
+(x) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T () S
+(case) K
+( S_ISGID:) p n
+() S 8 T () S 16 T (*p++ = ') S
+(S) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T () S
+(case) K
+( S_IXGRP | S_ISGID:) p n
+() S 8 T () S 16 T (*p++ = ') S
+(s) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T (}) N
+() S 8 T () S
+(/* other */) c n
+() p 8 T () S
+(if) K
+( \(mode & S_IROTH\)) p n
+() S 8 T () S 16 T (*p++ = ') S
+(r) str
+(';) p n
+() S 8 T () S
+(else) K n
+() p 8 T () S 16 T (*p++ = ') S
+(-) str
+(';) p n
+() S 8 T () S
+(if) K
+( \(mode & S_IWOTH\)) p n
+() S 8 T () S 16 T (*p++ = ') S
+(w) str
+(';) p n
+() S 8 T () S
+(else) K n
+() p 8 T () S 16 T (*p++ = ') S
+(-) str
+(';) p n
+() S 8 T () S
+(switch) K
+( \(mode & \(S_IXOTH | S_ISVTX\)\) {) p n
+() S 8 T () S
+(case) K
+( 0:) p n
+() S 8 T () S 16 T (*p++ = ') S
+(-) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T () S
+(case) K
+( S_IXOTH:) p n
+() S 8 T () S 16 T (*p++ = ') S
+(x) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T () S
+(case) K
+( S_ISVTX:) p n
+() S 8 T () S 16 T (*p++ = ') S
+(T) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T () S
+(case) K
+( S_IXOTH | S_ISVTX:) p n
+() S 8 T () S 16 T (*p++ = ') S
+(t) str
+(';) p n
+() S 8 T () S 16 T () S
+(break) K
+(;) p n
+() S 8 T (}) N
+() S 8 T (*p++ = ') S
+( ) str
+(';) p 24 T () S 32 T () S
+(/* will be a '+' if ACL's implemented */) c n
+() p 8 T (*p = ') S
+(\\0) str
+(';) p n
+(}) N
+(#endif) K
+( ) p
+(/* !HAVE_STRMODE */) c n
+(strmode.c) (Page 3/3) (May 04, 17 15:54) title
+border
+grestore
+(Printed by Marshall Tanis) rhead
+(strmode.c) (22/22) (Friday June 02, 2017) footer
+end % of iso1dict
+pagesave restore
+showpage
+
+%%Trailer
+end
+%%EOF
